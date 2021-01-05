@@ -69,6 +69,11 @@ PRODUCT_PACKAGES += \
     sound_trigger.primary.pineapple \
     vendor.qti.audio-adsprpc-service.rc
 
+# Boot control
+PRODUCT_PACKAGES += \
+    android.hardware.boot-service.qti \
+    android.hardware.boot-service.qti.recovery
+
 # Soong
 PRODUCT_SOONG_NAMESPACES += \
     $(DEVICE_PATH)
