@@ -267,5 +267,9 @@ PRODUCT_PACKAGES += \
     update_engine_sideload \
     update_verifier
 
+# USB
+PRODUCT_PACKAGES += \
+    android.hardware.usb-service.qti
+
 # Inherit from proprietary targets
 $(call inherit-product, vendor/nubia/caza/caza-vendor.mk)
