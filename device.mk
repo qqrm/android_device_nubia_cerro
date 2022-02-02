@@ -52,6 +52,7 @@ PRODUCT_PACKAGES += \
     audio.bluetooth.default \
     audio.r_submix.default \
     audio.usb.default \
+    firmware_aw_cali.bin_symlink \
     libagmmixer \
     libagm_compress_plugin \
     libagm_mixer_plugin \
