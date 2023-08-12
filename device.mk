@@ -296,5 +296,8 @@ PRODUCT_PACKAGES += \
     wpa_supplicant \
     wpa_supplicant.conf
 
+PRODUCT_COPY_FILES += \
+    $(call find-copy-subdir-files,*,$(LOCAL_PATH)/wifi,$(TARGET_COPY_OUT_VENDOR)/etc/wifi)
+
 # Inherit from proprietary targets
 $(call inherit-product, vendor/nubia/caza/caza-vendor.mk)
