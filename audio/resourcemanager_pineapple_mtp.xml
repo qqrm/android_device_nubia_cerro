@@ -1646,7 +1646,6 @@
                 <param version="0x0103" />
                 <param enable_failure_detection="false" />
                 <param notify_second_stage_failure="false" />
-                <param enable_concurrent_event_capture="true" />
                 <param mmap_enable="true" />
                 <param mmap_buffer_duration="5000" />
                 <!-- 5ms duration of data -->
@@ -1664,6 +1663,7 @@
                 <!--For now total 3 engines are supported, if more engine instances are needed,-->
                 <!-- do update acdb and usecaseKvManager.xml files by adding more instances    -->
                 <param pdk_first_stage_max_engine_count="3"/>
+                <param enable_concurrent_event_capture="true" />
                 <!-- Profile specific data which the algorithm can support -->
                 <param capture_keyword="2000" /> <!-- Default history buffer length -->
                 <param client_capture_read_delay="2000" /> <!-- reserved buffer duration for rt data -->
