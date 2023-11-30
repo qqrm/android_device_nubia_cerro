@@ -1,0 +1,23 @@
+# All unpinned blobs below are extracted from NebulaAIOS1.0.18MR_NX721J_V
+
+aop_config.img;AB
+aop.img;AB
+bluetooth.img;AB
+cpucp_dtb.img;AB
+cpucp.img;AB
+devcfg.img;AB
+dsp.img;AB
+featenabler.img;AB
+hyp.img;AB
+imagefv.img;AB
+keymaster.img;AB
+modem.img;AB
+qupfw.img;AB
+shrm.img;AB
+spuservice.img;AB
+tz.img;AB
+uefi.img;AB
+uefisecapp.img;AB
+xbl_config.img;AB
+xbl.img;AB
+xbl_ramdump.img;AB
