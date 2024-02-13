@@ -257,5 +257,9 @@ PRODUCT_PACKAGES += \
 PRODUCT_BOOT_JARS += \
     telephony-ext
 
+# Thermal
+PRODUCT_PACKAGES += \
+    android.hardware.thermal-service.qti
+
 # Inherit from proprietary targets
 $(call inherit-product, vendor/nubia/caza/caza-vendor.mk)
