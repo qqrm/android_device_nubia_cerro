@@ -494,7 +494,7 @@ vendor/lib64/libsr_x2_272_272_12.so
 vendor/lib64/libsr_x4_272_272_12.so
 vendor/lib64/libsynx.so
 vendor/lib64/libtensorflowlite_gpu_jni.so
-vendor/lib64/libtensorflowlite_jni.so
+vendor/lib64/libtensorflowlite_jni.so;MODULE_SUFFIX=_vendor
 vendor/lib64/libthreadutils.so
 vendor/lib64/libyuv_sr.so
 vendor/lib64/libyuv_udc.so
