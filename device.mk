@@ -42,6 +42,33 @@ DEVICE_PATH := device/nubia/caza
 BOARD_SHIPPING_API_LEVEL := 34
 PRODUCT_SHIPPING_API_LEVEL := 34
 
+# Audio
+PRODUCT_PACKAGES += \
+    android.hardware.audio@7.1-impl \
+    android.hardware.audio.effect@7.0-impl \
+    android.hardware.audio.service \
+    android.hardware.bluetooth.audio-impl \
+    android.hardware.soundtrigger@2.3-impl \
+    audio.bluetooth.default \
+    audio.usb.default \
+    audio.r_submix.default \
+    libagmmixer \
+    libagm_compress_plugin \
+    libagm_mixer_plugin \
+    libagm_pcm_plugin \
+    libaudiochargerlistener \
+    libbatterylistener \
+    libfmpal \
+    libhfp_pal \
+    libqcompostprocbundle \
+    libqcomvisualizer \
+    libqcomvoiceprocessing \
+    libsndcardparser \
+    libtinycompress \
+    libvolumelistener \
+    sound_trigger.primary.pineapple \
+    vendor.qti.audio-adsprpc-service.rc
+
 # Soong
 PRODUCT_SOONG_NAMESPACES += \
     $(DEVICE_PATH)
