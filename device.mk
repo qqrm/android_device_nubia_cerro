@@ -130,6 +130,16 @@ PRODUCT_PACKAGES += \
 # Overlays
 PRODUCT_ENFORCE_RRO_TARGETS := *
 
+PRODUCT_PACKAGES += \
+    CarrierConfigResCommon_Sys \
+    FrameworksResTarget_Vendor \
+    SystemUIResCommon_Sys \
+    TelephonyResCommon_Sys \
+    WifiResCommon_Sys \
+    WifiResOverlay \
+    WifiResTarget \
+    WifiResTarget_spf
+
 # Soong
 PRODUCT_SOONG_NAMESPACES += \
     $(DEVICE_PATH)
