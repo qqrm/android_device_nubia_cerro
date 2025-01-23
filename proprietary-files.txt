@@ -2073,6 +2073,9 @@ vendor/etc/vintf/manifest/android.hardware.drm-service.xml
 vendor/etc/init/init.vendor.wlan.rc
 vendor/bin/cnss-daemon
 
+# WiFi Display (wfdnative) - from sunstone
+system_ext/lib64/libwfdnative.so;SYMLINK=system_ext/priv-app/WfdService/lib/arm64/libwfdnative.so|11a6b51bf0da677a28fc117eb455279390b9c262|11a6b51bf0da677a28fc117eb455279390b9c262
+
 # WiFi Display
 system/framework/WfdCommon.jar
 system_ext/bin/wfdservice64
@@ -2090,7 +2093,6 @@ system_ext/lib64/libwfddisplayconfig.so
 system_ext/lib64/libwfdmminterface.so
 system_ext/lib64/libwfdmmsink.so
 system_ext/lib64/libwfdmmsrc_system.so
-system_ext/lib64/libwfdnative.so;SYMLINK=system_ext/priv-app/WfdService/lib/arm64/libwfdnative.so
 system_ext/lib64/libwfdrtsp.so
 system_ext/lib64/libwfdservice.so
 system_ext/lib64/libwfdsinksm.so
