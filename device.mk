@@ -49,26 +49,29 @@ PRODUCT_PACKAGES += \
     android.hardware.audio.service \
     android.hardware.bluetooth.audio-impl \
     android.hardware.soundtrigger@2.3-impl \
+    audioadsprpcd \
     audio.bluetooth.default \
+    audio.primary.pineapple \
     audio.r_submix.default \
     audio.usb.default \
     firmware_aw_cali.bin_symlink \
-    libagmmixer \
+    lib_bt_aptx \
+    lib_bt_ble \
+    lib_bt_bundle \
     libagm_compress_plugin \
     libagm_mixer_plugin \
     libagm_pcm_plugin \
     libaudiochargerlistener \
     libbatterylistener \
+    libcustomva_intf \
     libfmpal \
     libhfp_pal \
+    libhotword_intf \
     libqcompostprocbundle \
     libqcomvisualizer \
     libqcomvoiceprocessing \
-    libsndcardparser \
-    libtinycompress \
     libvolumelistener \
-    sound_trigger.primary.pineapple \
-    vendor.qti.audio-adsprpc-service.rc
+    sound_trigger.primary.pineapple
 
 AUDIO_HAL_DIR := hardware/qcom-caf/sm8650/audio/primary-hal
 AUDIO_PAL_DIR := hardware/qcom-caf/sm8650/audio/pal
