@@ -90,7 +90,6 @@ TARGET_HEALTH_CHARGING_CONTROL_CHARGING_PATH := /sys/class/qcom-battery/battery_
 BOARD_KERNEL_BASE := 0x00000000
 BOARD_KERNEL_IMAGE_NAME := Image
 BOARD_KERNEL_PAGESIZE := 4096
-TARGET_NEEDS_DTBOIMAGE := true
 
 BOARD_BOOT_HEADER_VERSION := 4
 BOARD_MKBOOTIMG_ARGS := --header_version $(BOARD_BOOT_HEADER_VERSION)
@@ -109,15 +108,11 @@ BOARD_BOOTCONFIG := \
     androidboot.hypervisor.protected_vm.supported=false \
     androidboot.console=0
 
+TARGET_KERNEL_CONFIG := cerro_defconfig
 TARGET_KERNEL_SOURCE := kernel/nubia/sm8650
 
 BOARD_PREBUILT_DTBIMAGE_DIR := $(DEVICE_PATH)
-
 PREBUILT_PATH := device/nubia/caza-kernel
-TARGET_NO_KERNEL_OVERRIDE := true
-PRODUCT_COPY_FILES += \
-	$(PREBUILT_PATH)/images/kernel:kernel
-
 BOARD_PREBUILT_DTBOIMAGE := $(PREBUILT_PATH)/images/dtbo.img
 
 # Kernel modules
