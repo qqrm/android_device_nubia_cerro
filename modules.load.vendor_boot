@@ -1,6 +1,5 @@
 gh_arm_drv.ko
 sched-walt.ko
-msm_rtb.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
 phy-qcom-ufs.ko
