@@ -69,7 +69,6 @@ qcom_iommu_debug.ko
 drm_dp_aux_bus.ko
 drm_display_helper.ko
 lt9611uxc.ko
-zram.ko
 haptic.ko
 qseecom_proxy.ko
 qcom-i2c-pmic.ko
