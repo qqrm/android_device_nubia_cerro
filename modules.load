@@ -381,5 +381,4 @@ ipclite.ko
 ipclite_test.ko
 ubwcp.ko
 msm_video.ko
-ftmmod.ko
 msm_kgsl.ko
