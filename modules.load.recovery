@@ -102,7 +102,6 @@ zte_stats_info.ko
 qrtr.ko
 qrtr-gunyah.ko
 msm_sysstats.ko
-zsmalloc.ko
 msm_show_resume_irq.ko
 mhi.ko
 mhi_dev_uci.ko
