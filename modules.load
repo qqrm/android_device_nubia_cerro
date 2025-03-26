@@ -182,7 +182,6 @@ cnss_nl.ko
 cnss_prealloc.ko
 cnss_utils.ko
 aw882xx_dlkm.ko
-smartpa_stat_dlkm.ko
 q6_notifier_dlkm.ko
 spf_core_dlkm.ko
 audpkt_ion_dlkm.ko
@@ -217,7 +216,6 @@ wcd938x_slave_dlkm.ko
 wcd939x_dlkm.ko
 wcd939x_slave_dlkm.ko
 aw882xx_dlkm.ko
-smartpa_stat_dlkm.ko
 q6_notifier_dlkm.ko
 spf_core_dlkm.ko
 audpkt_ion_dlkm.ko
@@ -252,7 +250,6 @@ wcd938x_slave_dlkm.ko
 wcd939x_dlkm.ko
 wcd939x_slave_dlkm.ko
 aw882xx_dlkm.ko
-smartpa_stat_dlkm.ko
 gpio_keys_nubia.ko
 qcedev-mod_dlkm.ko
 qcrypto-msm_dlkm.ko
@@ -275,7 +272,6 @@ cnss_nl.ko
 cnss_prealloc.ko
 cnss_utils.ko
 aw882xx_dlkm.ko
-smartpa_stat_dlkm.ko
 q6_notifier_dlkm.ko
 spf_core_dlkm.ko
 audpkt_ion_dlkm.ko
@@ -310,7 +306,6 @@ wcd938x_slave_dlkm.ko
 wcd939x_dlkm.ko
 wcd939x_slave_dlkm.ko
 aw882xx_dlkm.ko
-smartpa_stat_dlkm.ko
 q6_notifier_dlkm.ko
 spf_core_dlkm.ko
 audpkt_ion_dlkm.ko
@@ -345,7 +340,6 @@ wcd938x_slave_dlkm.ko
 wcd939x_dlkm.ko
 wcd939x_slave_dlkm.ko
 aw882xx_dlkm.ko
-smartpa_stat_dlkm.ko
 btpower.ko
 bt_fm_slim.ko
 radio-i2c-rtc6226-qca.ko
