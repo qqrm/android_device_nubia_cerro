@@ -136,7 +136,6 @@ eud.ko
 llcc-qcom.ko
 llcc_perfmon.ko
 boot_stats.ko
-rq_stats.ko
 core_hang_detect.ko
 qcom_va_minidump.ko
 qcom_logbuf_vendor_hooks.ko
