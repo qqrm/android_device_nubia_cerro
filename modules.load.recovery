@@ -94,7 +94,6 @@ icc-debug.ko
 icc-test.ko
 kmparam.ko
 pm_debug.ko
-zte_stats_info.ko
 qrtr.ko
 qrtr-gunyah.ko
 msm_sysstats.ko
