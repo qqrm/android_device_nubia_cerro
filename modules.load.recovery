@@ -271,7 +271,6 @@ stm_p_ost.ko
 stm_console.ko
 stm_heartbeat.ko
 stm_ftrace.ko
-zte_sensor.ko
 snd-usb-audio-qmi.ko
 snd-soc-hdmi-codec.ko
 qrtr-smd.ko
