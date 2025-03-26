@@ -250,7 +250,6 @@ wcd938x_slave_dlkm.ko
 wcd939x_dlkm.ko
 wcd939x_slave_dlkm.ko
 aw882xx_dlkm.ko
-gpio_keys_nubia.ko
 qcedev-mod_dlkm.ko
 qcrypto-msm_dlkm.ko
 qce50_dlkm.ko
@@ -367,7 +366,6 @@ msm_ext_display.ko
 sync_fence.ko
 msm_hw_fence.ko
 msm-mmrm.ko
-gpio_keys_nubia.ko
 qcedev-mod_dlkm.ko
 qcrypto-msm_dlkm.ko
 qce50_dlkm.ko
