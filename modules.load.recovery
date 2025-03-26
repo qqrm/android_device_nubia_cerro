@@ -92,7 +92,6 @@ qnoc-pineapple.ko
 qnoc-qos.ko
 icc-debug.ko
 icc-test.ko
-kmparam.ko
 pm_debug.ko
 qrtr.ko
 qrtr-gunyah.ko
