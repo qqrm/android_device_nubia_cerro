@@ -361,7 +361,6 @@ msm_drm.ko
 frpc-adsprpc.ko
 cdsp-loader.ko
 msm-eva.ko
-qbt_handler.ko
 msm_ext_display.ko
 sync_fence.ko
 msm_hw_fence.ko
