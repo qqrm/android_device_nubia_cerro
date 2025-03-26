@@ -92,7 +92,6 @@ qnoc-pineapple.ko
 qnoc-qos.ko
 icc-debug.ko
 icc-test.ko
-zlog_common_dlkm.ko
 zte_imem_info.ko
 kmparam.ko
 pm_debug.ko
