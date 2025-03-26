@@ -3,7 +3,6 @@ msm_show_resume_irq.ko
 mhi.ko
 mhi_dev_uci.ko
 mhi_dev_satellite.ko
-phy-qcom-ufs-qmp-v4-kalama.ko
 phy-qcom-ufs-qmp-v4.ko
 phy-qcom-ufs-qmp-v4-waipio.ko
 pinctrl-spmi-gpio.ko
