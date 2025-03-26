@@ -249,7 +249,6 @@ charger_policy_service.ko
 zte_misc.ko
 zte_power_supply.ko
 zte_tpd.ko
-zlog_test_dlkm.ko
 slimbus.ko
 slim-qcom-ngd-ctrl.ko
 coresight.ko
