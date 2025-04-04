@@ -84,7 +84,7 @@ DEVICE_MATRIX_FILE := \
 ODM_MANIFEST_FILES := \
     $(DEVICE_PATH)/manifest_odm.xml
 
-# init_boot
+# Init Boot
 BOARD_INIT_BOOT_HEADER_VERSION := 4
 BOARD_MKBOOTIMG_INIT_ARGS += --header_version $(BOARD_INIT_BOOT_HEADER_VERSION)
 
