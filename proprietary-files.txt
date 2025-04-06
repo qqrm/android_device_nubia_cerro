@@ -1051,9 +1051,6 @@ vendor/etc/init/vendor.qti.hardware.dsp@1.0-service.rc
 vendor/etc/seccomp_policy/vendor.qti.hardware.dsp.policy
 vendor/lib64/vendor.qti.hardware.dsp@1.0.so
 
-# ESE
-vendor/lib64/vendor.qti.esepowermanager@1.0.so
-
 # EVA
 vendor/etc/eva/facedetection/bias.dat
 vendor/etc/eva/facedetection/weight.dat
