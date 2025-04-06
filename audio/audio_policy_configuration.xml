@@ -493,7 +493,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
 
     <!-- Volume section -->
 
-    <xi:include href="/vendor/etc/audio/sku_pineapple_qssi/audio_policy_volumes.xml"/>
+    <xi:include href="/vendor/etc/audio_policy_volumes.xml"/>
     <xi:include href="/vendor/etc/default_volume_tables.xml"/>
 
     <!-- End of Volume section -->
