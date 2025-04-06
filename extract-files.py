@@ -64,10 +64,6 @@ blob_fixups: blob_fixups_user_type = {
         .add_needed('libinput_shim.so'),
     'system_ext/lib64/libwfdservice.so': blob_fixup()
         .replace_needed('android.media.audio.common.types-V2-cpp.so', 'android.media.audio.common.types-V4-cpp.so'),
-    'vendor/etc/camera/mfnr_network_denoise_config.xml': blob_fixup()
-        .regex_replace('"roi', '" roi'),
-    'vendor/etc/camera/mfnr_network_denoise_config_renwen.xml': blob_fixup()
-        .regex_replace('"roi', '" roi'),
     'vendor/lib64/libcamximageformatutils.so': blob_fixup()
         .remove_needed('android.hardware.graphics.allocator-V1-ndk.so'),
     (
