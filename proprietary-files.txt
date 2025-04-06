@@ -109,7 +109,6 @@ vendor/etc/audio_policy_volumes.xml
 vendor/etc/bluetooth_qti_audio_policy_configuration.xml
 vendor/etc/bluetooth_qti_hearing_aid_audio_policy_configuration.xml
 vendor/etc/card-defs.xml
-vendor/etc/default_audio_logmask.cfg
 vendor/etc/default_volume_tables.xml
 vendor/etc/mem_logger_config.xml
 vendor/etc/microphone_characteristics.xml
@@ -1335,7 +1334,6 @@ vendor/bin/init.class_main.sh
 vendor/bin/init.mdm.sh
 vendor/bin/init.qcom.early_boot.sh
 vendor/bin/init.qcom.sh
-vendor/bin/init.ssdaemon_vendor.sh
 
 # Keymaster
 vendor/bin/hw/android.hardware.security.keymint-service-qti
