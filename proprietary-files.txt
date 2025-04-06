@@ -1038,9 +1038,12 @@ vendor/lib64/vendor.qti.hardware.dpmservice@1.0.so;MODULE_SUFFIX=_vendor
 vendor/lib64/vendor.qti.hardware.dpmservice@1.1.so
 
 # DCF
+vendor/bin/qsap_dcfd
+vendor/etc/seccomp_policy/qsap_dcfd.policy
 vendor/lib64/libDcfHalFramework.so
 vendor/lib64/libDcfHalLogger.so
 vendor/lib64/libDcfHalQtiMutex.so
+vendor/lib64/libqsh_ble_pb.so
 
 # DSP
 vendor/bin/dspservice
@@ -1602,7 +1605,6 @@ vendor/bin/hw/qcrilNrd
 vendor/bin/ks
 vendor/bin/nicmd
 vendor/bin/qms;DISABLE_CHECKELF
-vendor/bin/qsap_dcfd
 vendor/bin/qtigetprop
 vendor/bin/qtisetprop
 vendor/etc/init/dcfd.rc
@@ -1639,7 +1641,6 @@ vendor/etc/qcril_database/upgrade/other/0015_version_add_iccid_clir_pref_table.s
 vendor/etc/qcril_database/qcrilNr.db
 vendor/etc/seccomp_policy/qcrilnr@2.0.policy
 vendor/etc/seccomp_policy/qms.policy
-vendor/etc/seccomp_policy/qsap_dcfd.policy
 vendor/etc/vintf/manifest/android.hardware.radio.config.xml
 vendor/etc/vintf/manifest/android.hardware.radio.data.xml
 vendor/etc/vintf/manifest/android.hardware.radio.messaging.xml
@@ -1686,7 +1687,6 @@ vendor/lib64/libqcrildataqos.so
 vendor/lib64/libqdpr.so
 vendor/lib64/libqms.so
 vendor/lib64/libqms_client.so
-vendor/lib64/libqsh_ble_pb.so
 vendor/lib64/libril-db.so
 vendor/lib64/libril-legacy.so
 vendor/lib64/libril-qc-ltedirectdisc.so
