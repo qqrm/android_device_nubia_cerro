@@ -1038,6 +1038,7 @@ vendor/lib64/vendor.qti.hardware.dpmservice@1.1.so
 
 # DCF
 vendor/bin/qsap_dcfd
+vendor/etc/init/dcfd.rc
 vendor/etc/seccomp_policy/qsap_dcfd.policy
 vendor/lib64/libDcfHalFramework.so
 vendor/lib64/libDcfHalLogger.so
@@ -1565,7 +1566,6 @@ vendor/bin/nicmd
 vendor/bin/qms
 vendor/bin/qtigetprop
 vendor/bin/qtisetprop
-vendor/etc/init/dcfd.rc
 vendor/etc/init/nicmd.rc
 vendor/etc/init/qcrilNrd.rc
 vendor/etc/init/qms.rc
