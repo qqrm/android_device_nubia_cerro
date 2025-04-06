@@ -184,7 +184,6 @@ qti_userspace_cdev.ko
 qti-fixed-regulator.ko
 qti-glink-adc.ko
 qti-ocp-notifier.ko
-radio-i2c-rtc6226-qca.ko
 rdbg.ko
 reboot-mode.ko
 redriver.ko
