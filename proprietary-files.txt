@@ -93,30 +93,6 @@ vendor/lib64/rfs/dsp/libworker_pool.so
 # ANT+
 vendor/lib64/hw/com.dsi.ant@1.0-impl.so
 
-# Audio configs
-vendor/etc/audio/sku_pineapple/audio_effects.conf
-vendor/etc/audio/sku_pineapple/audio_effects.xml
-vendor/etc/audio/sku_pineapple/audio_policy_configuration.xml
-vendor/etc/audio/sku_pineapple/mixer_paths_pineapple_mtp.xml
-vendor/etc/audio/sku_pineapple/resourcemanager_pineapple_mtp.xml
-vendor/etc/audio/sku_pineapple_qssi/audio_effects.xml
-vendor/etc/audio/sku_pineapple_qssi/audio_policy_configuration.xml
-vendor/etc/audio/sku_pineapple_qssi/audio_policy_volumes.xml
-vendor/etc/Hapticsconfig.xml
-vendor/etc/a2dp_audio_policy_configuration.xml
-vendor/etc/audio_policy_configuration.xml
-vendor/etc/audio_policy_volumes.xml
-vendor/etc/bluetooth_qti_audio_policy_configuration.xml
-vendor/etc/bluetooth_qti_hearing_aid_audio_policy_configuration.xml
-vendor/etc/card-defs.xml
-vendor/etc/default_volume_tables.xml
-vendor/etc/mem_logger_config.xml
-vendor/etc/microphone_characteristics.xml
-vendor/etc/r_submix_audio_policy_configuration.xml
-vendor/etc/smartpa_calibration_config.xml
-vendor/etc/usb_audio_policy_configuration.xml
-vendor/etc/usecaseKvManager.xml
-
 # Audio
 vendor/bin/qsap_voiceui
 vendor/etc/seccomp_policy/qsap_voiceui.policy
