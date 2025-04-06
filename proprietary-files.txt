@@ -1924,11 +1924,7 @@ vendor/lib64/libGPTEE_vendor.so
 vendor/lib64/vendor.qti.hardware.qteeconnector@1.0.so
 
 # Video
-vendor/lib64/libpowercore.so
-vendor/lib64/libstreamparser.so
-vendor/lib64/libvideooptfeature.so
 vendor/lib64/libvideotxr.so
-vendor/lib64/libvideoutils.so
 
 # VM
 vendor/bin/vmmgr
