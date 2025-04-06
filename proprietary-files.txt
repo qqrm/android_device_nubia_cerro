@@ -783,7 +783,6 @@ vendor/firmware/ois_dw9784_cerro_ov50e40.prog
 # CDSP
 vendor/bin/cdsprpcd
 vendor/etc/init/vendor.qti.cdsprpc-service.rc
-vendor/lib64/libQ6MSFR_manager_stub.so
 vendor/lib64/libcdsp_default_listener.so
 vendor/lib64/libcdsprpc.so
 vendor/lib64/libmdsprpc.so
@@ -1760,6 +1759,7 @@ vendor/etc/init/vendor.qti.rmt_storage.rc
 vendor/lib64/libFace3DTA.so
 vendor/lib64/libFace3D_hlos.so
 vendor/lib64/libface3d_dev.so
+vendor/lib64/libQ6MSFR_manager_stub.so
 vendor/lib64/libscveCommon.so
 vendor/lib64/libscveCommon_stub.so
 vendor/lib64/libscveObjectSegmentation.so
