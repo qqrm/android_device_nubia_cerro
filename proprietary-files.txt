@@ -873,7 +873,7 @@ vendor/lib64/vendor.qti.latencyaidlservice-V1-ndk.so
 
 # Connection Security
 vendor/bin/qwesd
-vendor/bin/ssgqmigd64
+vendor/bin/ssgqmigd
 vendor/bin/ssgtzd
 vendor/etc/init/qwesd.rc
 vendor/etc/init/ssgtzd.rc
