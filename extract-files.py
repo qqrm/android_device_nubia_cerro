@@ -51,7 +51,6 @@ lib_fixups: lib_fixups_user_type = {
     (
         'libagmclient',
         'libpalclient',
-        'libwpa_client',
     ): lib_fixup_remove,
 }
 
