@@ -102,7 +102,6 @@ vendor/etc/audio/sku_pineapple/resourcemanager_pineapple_mtp.xml
 vendor/etc/audio/sku_pineapple_qssi/audio_effects.xml
 vendor/etc/audio/sku_pineapple_qssi/audio_policy_configuration.xml
 vendor/etc/audio/sku_pineapple_qssi/audio_policy_volumes.xml
-vendor/etc/audio/sku_pineapple_qssi/zaudio_service.xml
 vendor/etc/Hapticsconfig.xml
 vendor/etc/a2dp_audio_policy_configuration.xml
 vendor/etc/audio_policy_configuration.xml
