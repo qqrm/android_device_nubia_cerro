@@ -147,12 +147,8 @@ vendor/etc/models/acd/speech.eai
 
 # Audio FX modules
 vendor/lib64/soundfx/libasphere.so
-vendor/lib64/soundfx/libhaptic_effect.so
 vendor/lib64/soundfx/libshoebox.so
 vendor/lib64/soundfx/libquasar.so
-
-# Audio FX firmware
-vendor/firmware/awinic_haptic_params.bin
 
 # Bluetooth
 vendor/bin/hw/android.hardware.bluetooth@1.1-service-qti
