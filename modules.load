@@ -61,6 +61,7 @@ gh_rm_booster.ko
 gh_tlmm_vm_mem_access.ko
 glink_pkt.ko
 glink_probe.ko
+goodix_core.ko
 gpr_dlkm.ko
 gpucc-cliffs.ko
 gsim.ko
