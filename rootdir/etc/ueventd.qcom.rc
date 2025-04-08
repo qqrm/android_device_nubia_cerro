@@ -398,9 +398,6 @@ subsystem mem_buf_vm
 # eSE permissions
 /dev/st54spi_gpio         0660   system     system
 
-# permsissions for ZTE IR
-/dev/zte_ir               0660   system     system
-
 # UIO devices
 /dev/uio0                 0660   system     system
 /dev/uio1                 0660   system     system

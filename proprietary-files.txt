@@ -851,9 +851,6 @@ vendor/etc/ssg/ta_config.json
 vendor/etc/ssg/tz_whitelist.json
 vendor/lib64/libtaautoload.so
 
-# Consumer IR
-vendor/lib64/hw/consumerir.zte.so:vendor/lib64/hw/consumerir.pineapple.so;FIX_SONAME
-
 # Data
 vendor/bin/ATFWD-daemon
 vendor/bin/adpl
