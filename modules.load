@@ -1,6 +1,5 @@
 adsp_loader_dlkm.ko
 adsp_sleepmon.ko
-ah1898_hall.ko
 altmode-glink.ko
 audio_pkt_dlkm.ko
 audio_prm_dlkm.ko

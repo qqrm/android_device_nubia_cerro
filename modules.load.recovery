@@ -1,5 +1,4 @@
 adsp_sleepmon.ko
-ah1898_hall.ko
 altmode-glink.ko
 arm_smmu.ko
 bam_dma.ko
