@@ -1,7 +1,6 @@
 <!--
     Input:
         vendor/zte/fingerprint/fingerprint_vendor/goodix_9688_8650/manifest_gf95xx.xml
-        vendor/zte/fingerprint/fingerprint_vendor/ifaaaidl/zteifaaaidl.xml
         vendor/zte/st-nfc/build/manifest_se_aidl.xml
         vendor/zte/subsys-components/modem/manifest_dual_sim.xml
         vendor/zte/subsys-components/subsystem_daemon_vendor/manifest.xml
@@ -15,10 +14,6 @@
     <hal format="aidl">
         <name>vendor.goodix.hardware.biometrics.fingerprint</name>
         <fqname>IGoodixFingerprintDaemon/default</fqname>
-    </hal>
-    <hal format="aidl">
-        <name>vendor.zte.fingerprint.ifaaaidl</name>
-        <fqname>IIfaaAidlDaemon/default</fqname>
     </hal>
     <hal format="aidl">
         <name>vendor.zte.modem</name>

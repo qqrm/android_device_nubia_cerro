@@ -12,14 +12,6 @@
         </interface>
     </hal>
     <hal format="aidl" optional="true" >
-        <name>vendor.zte.fingerprint.ifaaaidl</name>
-        <version>1</version>
-        <interface>
-            <name>IIfaaAidlDaemon</name>
-            <instance>default</instance>
-        </interface>
-    </hal>
-    <hal format="aidl" optional="true" >
         <name>vendor.zte.hardware.camera.transfer</name>
         <version>1</version>
         <interface>
