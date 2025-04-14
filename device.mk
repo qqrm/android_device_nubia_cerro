@@ -125,6 +125,10 @@ PRODUCT_PACKAGES += \
     android.hardware.fastboot-service.example_recovery \
     fastbootd
 
+# Fingerprint
+PRODUCT_PACKAGES += \
+    android.hardware.biometrics.fingerprint-service.caza
+
 # Health
 PRODUCT_PACKAGES += \
     android.hardware.health-service.qti \
