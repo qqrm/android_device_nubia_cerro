@@ -1,0 +1,626 @@
+/*
+ * SPDX-FileCopyrightText: 2025 The LineageOS Project
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "FingerprintEngine.h"
+#include "Legacy2Aidl.h"
+#include "fingerprint.h"
+
+#include <android-base/logging.h>
+
+#include <fcntl.h>
+#include <poll.h>
+
+#include <chrono>
+#include <mutex>
+
+using namespace std::chrono;
+
+constexpr int ENROLL_TIMEOUT = 60;
+
+namespace aidl::android::hardware::biometrics::fingerprint {
+
+static FingerprintEngine* sInstance;
+
+namespace {
+constexpr const char* FOD_UI_PATH = "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fod_ui";
+
+static bool readBool(int fd) {
+    char c;
+    int rc;
+
+    rc = lseek(fd, 0, SEEK_SET);
+    if (rc) {
+        LOG(ERROR) << "failed to seek fd, err: " << rc;
+        return false;
+    }
+
+    rc = read(fd, &c, sizeof(char));
+    if (rc != 1) {
+        LOG(ERROR) << "failed to read bool from fd, err: " << rc;
+        return false;
+    }
+
+    return c != '0';
+}
+
+};  // namespace
+
+FingerprintEngine::FingerprintEngine() : mDevice(openHal(nullptr, "fingerprint.gf95xx")) {
+    sInstance = this;
+
+    std::thread([this]() {
+        int fd = open(FOD_UI_PATH, O_RDONLY);
+        if (fd < 0) {
+            LOG(ERROR) << "failed to open fd, err: " << fd;
+            return;
+        }
+
+        struct pollfd fodUiPoll = {
+                .fd = fd,
+                .events = POLLERR | POLLPRI,
+                .revents = 0,
+        };
+
+        while (true) {
+            int rc = poll(&fodUiPoll, 1, -1);
+            if (rc < 0) {
+                LOG(ERROR) << "failed to poll fd, err: " << rc;
+                continue;
+            }
+
+            bool fodUiReady = readBool(fd);
+            LOG(ERROR) << "fodUiReady: " << fodUiReady;
+            int error = mDevice->sendCustomizedCommand(mDevice, 30, fodUiReady);
+            if (error) {
+                LOG(ERROR) << "sendCustomizedCommand failed: " << error;
+            }
+        }
+    }).detach();
+}
+
+FingerprintEngine::~FingerprintEngine() {
+    LOG(INFO) << __func__;
+
+    if (mDevice == nullptr) {
+        LOG(ERROR) << "No valid device";
+        return;
+    }
+    int err;
+    if (0 != (err = mDevice->common.close(reinterpret_cast<hw_device_t*>(mDevice)))) {
+        LOG(ERROR) << "Can't close fingerprint module, error: " << err;
+        return;
+    }
+    mDevice = nullptr;
+}
+
+void FingerprintEngine::setSessionCallback(ISessionCallback* cb) {
+    mCb = cb;
+}
+
+fingerprint_device_t* FingerprintEngine::openHal(const char* class_name, const char* module_id) {
+    int err;
+    const hw_module_t* hw_mdl = nullptr;
+    LOG(DEBUG) << "Opening fingerprint hal library...";
+    if (0 != (err = hw_get_module_by_class(module_id, class_name, &hw_mdl))) {
+        LOG(ERROR) << "Can't open fingerprint HW Module, error: " << err;
+        return nullptr;
+    }
+
+    if (hw_mdl == nullptr) {
+        LOG(ERROR) << "No valid fingerprint module";
+        return nullptr;
+    }
+
+    fingerprint_module_t const* module = reinterpret_cast<const fingerprint_module_t*>(hw_mdl);
+    if (module->common.methods->open == nullptr) {
+        LOG(ERROR) << "No valid open method";
+        return nullptr;
+    }
+
+    hw_device_t* device = nullptr;
+
+    if (0 != (err = module->common.methods->open(hw_mdl, nullptr, &device))) {
+        LOG(ERROR) << "Can't open fingerprint methods, error" << err;
+        return nullptr;
+    }
+
+    fingerprint_device_t* fp_device = reinterpret_cast<fingerprint_device_t*>(device);
+
+    if (0 != (err = fp_device->set_notify(fp_device, FingerprintEngine::onMessageWrapper))) {
+        LOG(ERROR) << "Can't register fingerprint module callback, error: " << err;
+        return nullptr;
+    }
+
+    return fp_device;
+}
+
+void FingerprintEngine::setActiveGroup(int userId) {
+    LOG(INFO) << __func__;
+
+    mDevice->setActiveGroup(mDevice, userId);
+}
+
+void FingerprintEngine::generateChallengeImpl() {
+    LOG(INFO) << __func__;
+    CHECK(mCb != nullptr);
+
+    uint64_t error = mDevice->generateChallenge(mDevice);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        mCb->onError(Error::UNABLE_TO_PROCESS, 0 /* vendorError */);
+        return;
+    }
+
+    while (true) {
+        auto msg = waitForMessage();
+
+        if (msg.type != FINGERPRINT_GENERATE_CHALLENGE) {
+            LOG(ERROR) << "Unexpected message type: " << msg.type;
+            continue;
+        }
+
+        LOG(INFO) << "onChallengeGenerated(challenge=" << msg.data.data << ")";
+
+        mCb->onChallengeGenerated(msg.data.data);
+        break;
+    }
+}
+
+void FingerprintEngine::revokeChallengeImpl(int64_t challenge) {
+    LOG(INFO) << __func__;
+    CHECK(mCb != nullptr);
+
+    uint64_t error = mDevice->revokeChallenge(mDevice, challenge);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        mCb->onError(Error::UNABLE_TO_PROCESS, 0 /* vendorError */);
+        return;
+    }
+
+    while (true) {
+        auto msg = waitForMessage();
+
+        if (msg.type != FINGERPRINT_REVOKE_CHALLENGE) {
+            LOG(ERROR) << "Unexpected message type: " << msg.type;
+            continue;
+        }
+
+        LOG(INFO) << "onChallengeRevoked(challenge=" << msg.data.data << ")";
+
+        mCb->onChallengeRevoked(msg.data.data);
+        break;
+    }
+}
+
+bool FingerprintEngine::handleAcquiredOrErrorMessage(fingerprint_msg_t& msg, bool& exit) {
+    if (msg.type == FINGERPRINT_ERROR) {
+        auto ec = convertError(msg.data.error);
+
+        printError(ec);
+
+        if (ec.first == Error::CANCELED) {
+            mDevice->cancel();
+            auto msg = waitForMessage();
+            CHECK(msg.type == FINGERPRINT_ERROR);
+            CHECK(msg.data.error == FINGERPRINT_ERROR_CANCELED);
+        }
+
+        exit = true;
+        mCb->onError(ec.first, ec.second);
+        return true;
+    } else if (msg.type == FINGERPRINT_ACQUIRED) {
+        auto ac = convertAcquiredInfo(msg.data.acquired.acquired_info);
+        LOG(INFO) << "onAcquired(" << (int)ac.first << ", " << ac.second << ")";
+
+        if (ac.first == AcquiredInfo::VENDOR) {
+            return true;
+        }
+
+        mCb->onAcquired(ac.first, ac.second);
+        return true;
+    }
+
+    return false;
+}
+
+void FingerprintEngine::enrollImpl(const keymaster::HardwareAuthToken& hat,
+                                   const std::future<void>& cancel) {
+    LOG(INFO) << __func__;
+    CHECK(mCb != nullptr);
+
+    hw_auth_token_t authToken;
+    translate(hat, authToken);
+    int error = mDevice->enroll(mDevice, &authToken);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        mCb->onError(Error::UNABLE_TO_PROCESS, 0 /* vendorError */);
+        return;
+    }
+
+    while (true) {
+        auto msg = waitForMessageOrCancel(cancel);
+
+        bool exit = false;
+        auto handled = handleAcquiredOrErrorMessage(msg, exit);
+        if (exit) break;
+        if (handled) continue;
+
+        if (msg.type != FINGERPRINT_TEMPLATE_ENROLLING) {
+            LOG(ERROR) << "Unexpected message type: " << msg.type;
+            continue;
+        }
+
+        LOG(INFO) << "onEnrollResult(fid=" << msg.data.enroll.finger.fid
+                  << ", rem=" << msg.data.enroll.samples_remaining << ")";
+
+        mCb->onEnrollmentProgress(msg.data.enroll.finger.fid, msg.data.enroll.samples_remaining);
+
+        if (!msg.data.enroll.samples_remaining) {
+            break;
+        }
+    }
+}
+
+void FingerprintEngine::authenticateImpl(int64_t operationId, const std::future<void>& cancel) {
+    LOG(INFO) << __func__;
+    CHECK(mCb != nullptr);
+
+    int error = mDevice->authenticate(mDevice, operationId);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        mCb->onError(Error::UNABLE_TO_PROCESS, 0 /* vendorError */);
+        return;
+    }
+
+    while (true) {
+        auto msg = waitForMessageOrCancel(cancel);
+
+        bool exit = false;
+        auto handled = handleAcquiredOrErrorMessage(msg, exit);
+        if (exit) break;
+        if (handled) continue;
+
+        if (msg.type != FINGERPRINT_AUTHENTICATED) {
+            LOG(ERROR) << "Unexpected message type: " << msg.type;
+            continue;
+        }
+
+        LOG(INFO) << "onAuthenticated(fid=" << msg.data.authenticated.finger.fid << ")";
+
+        if (msg.data.authenticated.finger.fid != 0) {
+            auto msg = waitForMessage();
+            CHECK(msg.type == GF_FINGERPRINT_BIG_DATA);
+
+            const hw_auth_token_t hat = msg.data.authenticated.hat;
+            keymaster::HardwareAuthToken authToken;
+            translate(hat, authToken);
+            mCb->onAuthenticationSucceeded(msg.data.authenticated.finger.fid, authToken);
+            mLockoutTracker.reset(true);
+            break;
+        }
+
+        mCb->onAuthenticationFailed();
+        mLockoutTracker.addFailedAttempt();
+        checkSensorLockout();
+    }
+}
+
+void FingerprintEngine::detectInteractionImpl(const std::future<void>& /*cancel*/) {
+    LOG(INFO) << __func__;
+}
+
+void FingerprintEngine::enumerateEnrollmentsImpl() {
+    LOG(INFO) << __func__;
+    CHECK(mCb != nullptr);
+
+    std::vector<int32_t> enrollmentIds;
+
+    int error = mDevice->enumerate(mDevice);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        mCb->onEnrollmentsEnumerated(enrollmentIds);
+        return;
+    }
+
+    while (true) {
+        auto msg = waitForMessage();
+
+        if (msg.type != FINGERPRINT_TEMPLATE_ENUMERATING) {
+            LOG(ERROR) << "Unexpected message type: " << msg.type;
+            continue;
+        }
+
+        LOG(INFO) << "onEnumerate(fid=" << msg.data.enumerated.finger.fid
+                  << ", rem=" << msg.data.enumerated.remaining_templates << ")";
+
+        if (!msg.data.enumerated.finger.fid) {
+            break;
+        }
+
+        enrollmentIds.push_back(msg.data.enumerated.finger.fid);
+
+        if (!msg.data.enumerated.remaining_templates) {
+            break;
+        }
+    }
+
+    mCb->onEnrollmentsEnumerated(enrollmentIds);
+}
+
+void FingerprintEngine::removeEnrollmentsImpl(const std::vector<int32_t>& enrollmentIds) {
+    LOG(INFO) << __func__;
+    CHECK(mCb != nullptr);
+
+    int error = mDevice->remove(mDevice, enrollmentIds.data(), enrollmentIds.size());
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        return;
+    }
+
+    std::vector<int32_t> removedEnrollmentIds;
+    while (true) {
+        auto msg = waitForMessage();
+
+        if (msg.type == FINGERPRINT_ERROR) {
+            auto ec = convertError(msg.data.error);
+            printError(ec);
+            break;
+        }
+
+        if (msg.type != FINGERPRINT_TEMPLATE_REMOVED) {
+            LOG(ERROR) << "Unexpected message type: " << msg.type;
+            continue;
+        }
+
+        LOG(INFO) << "onRemove(fid=" << msg.data.removed.finger.fid
+                  << ", rem=" << msg.data.removed.remaining_templates << ")";
+
+        removedEnrollmentIds.push_back(msg.data.removed.finger.fid);
+
+        if (!msg.data.removed.remaining_templates) {
+            break;
+        }
+    }
+
+    mCb->onEnrollmentsRemoved(removedEnrollmentIds);
+}
+
+void FingerprintEngine::getAuthenticatorIdImpl() {
+    LOG(INFO) << __func__;
+    CHECK(mCb != nullptr);
+
+    uint64_t error = mDevice->getAuthenticatorId(mDevice);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        mCb->onAuthenticatorIdRetrieved(0);
+        return;
+    }
+
+    while (true) {
+        auto msg = waitForMessage();
+
+        if (msg.type != FINGERPRINT_GET_AUTHENTICATOR_ID) {
+            LOG(ERROR) << "Unexpected message type: " << msg.type;
+            continue;
+        }
+
+        LOG(INFO) << "onAuthenticatorIdRetrieved(authenticatorId=" << msg.data.data << ")";
+
+        mCb->onAuthenticatorIdRetrieved(msg.data.data);
+        break;
+    }
+}
+
+void FingerprintEngine::invalidateAuthenticatorIdImpl() {
+    LOG(INFO) << __func__;
+    CHECK(mCb != nullptr);
+
+    uint64_t error = mDevice->invalidateAuthenticatorId(mDevice);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        mCb->onAuthenticatorIdInvalidated(0);
+        return;
+    }
+
+    while (true) {
+        auto msg = waitForMessage();
+
+        if (msg.type != FINGERPRINT_GET_AUTHENTICATOR_ID) {
+            LOG(ERROR) << "Unexpected message type: " << msg.type;
+            continue;
+        }
+
+        LOG(INFO) << "onAuthenticatorIdInvalidated(newAuthenticatorId=" << msg.data.data << ")";
+
+        mCb->onAuthenticatorIdInvalidated(msg.data.data);
+        break;
+    }
+}
+
+void FingerprintEngine::resetLockoutImpl(const keymaster::HardwareAuthToken& /*hat*/) {
+    LOG(INFO) << __func__;
+
+    clearLockout();
+}
+
+ndk::ScopedAStatus FingerprintEngine::onPointerDownImpl(int32_t /*pointerId*/, int32_t /*x*/,
+                                                        int32_t /*y*/, float /*minor*/,
+                                                        float /*major*/) {
+    LOG(INFO) << __func__;
+
+    int error = mDevice->sendCustomizedCommand(mDevice, 10, 1);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        return ndk::ScopedAStatus::fromExceptionCode(EX_SERVICE_SPECIFIC);
+    }
+
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus FingerprintEngine::onPointerUpImpl(int32_t /*pointerId*/) {
+    LOG(INFO) << __func__;
+
+    int error = mDevice->sendCustomizedCommand(mDevice, 10, 0);
+    if (error) {
+        auto ec = convertError(error);
+        printError(ec);
+        return ndk::ScopedAStatus::fromExceptionCode(EX_SERVICE_SPECIFIC);
+    }
+
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus FingerprintEngine::onUiReadyImpl() {
+    LOG(INFO) << __func__;
+    return ndk::ScopedAStatus::ok();
+}
+
+void FingerprintEngine::printError(std::pair<Error, int32_t> ec) {
+    LOG(ERROR) << "onError(" << (int)ec.first << ", " << ec.second << ")";
+}
+
+std::pair<Error, int32_t> FingerprintEngine::convertError(int32_t code) {
+    std::pair<Error, int32_t> res;
+    CHECK(code != FINGERPRINT_ERROR_LOCKOUT);
+    if (code > FINGERPRINT_ERROR_VENDOR_BASE) {
+        res.first = Error::VENDOR;
+        res.second = code - FINGERPRINT_ERROR_VENDOR_BASE;
+    } else {
+        res.first = (Error)code;
+        res.second = 0;
+    }
+    return res;
+}
+
+std::pair<AcquiredInfo, int32_t> FingerprintEngine::convertAcquiredInfo(int32_t code) {
+    std::pair<AcquiredInfo, int32_t> res;
+    if (code > FINGERPRINT_ACQUIRED_VENDOR_BASE) {
+        res.first = AcquiredInfo::VENDOR;
+        res.second = code - FINGERPRINT_ACQUIRED_VENDOR_BASE;
+    } else {
+        res.first = (AcquiredInfo)code;
+        res.second = 0;
+    }
+    return res;
+}
+
+fingerprint_msg_t FingerprintEngine::waitForMessageOrCancel(const std::future<void>& cancel) {
+    LOG(INFO) << __func__;
+
+    std::unique_lock<std::mutex> lock(mMessageMutex);
+
+    auto msgCondition = [this] { return !mMessageQueue.empty(); };
+    auto cancelCondition = [&cancel] { return cancel.wait_for(0ms) == std::future_status::ready; };
+    auto condition = [&msgCondition, &cancelCondition] {
+        return msgCondition() || cancelCondition();
+    };
+
+    while (true) {
+        mMessageCond.wait_for(lock, 10ms, condition);
+
+        if (condition()) {
+            break;
+        }
+    };
+
+    fingerprint_msg_t msg;
+    if (cancelCondition()) {
+        LOG(INFO) << "Found cancel condition";
+        msg = {
+                .type = FINGERPRINT_ERROR,
+                .data.error = FINGERPRINT_ERROR_CANCELED,
+        };
+    } else {
+        msg = mMessageQueue.front();
+        LOG(INFO) << "Found message type: " << msg.type;
+        mMessageQueue.pop();
+    }
+
+    return msg;
+}
+
+fingerprint_msg_t FingerprintEngine::waitForMessage() {
+    LOG(INFO) << __func__;
+
+    std::unique_lock<std::mutex> lock(mMessageMutex);
+
+    mMessageCond.wait(lock, [this] { return !mMessageQueue.empty(); });
+
+    fingerprint_msg_t msg = mMessageQueue.front();
+    LOG(INFO) << "Found message type: " << msg.type;
+    mMessageQueue.pop();
+
+    return msg;
+}
+
+void FingerprintEngine::onMessage(const fingerprint_msg_t* msg) {
+    LOG(INFO) << __func__;
+    LOG(INFO) << "Received message type: " << msg->type;
+    CHECK(msg != nullptr);
+
+    {
+        std::lock_guard<std::mutex> lock(mMessageMutex);
+        mMessageQueue.push(*msg);
+    }
+
+    mMessageCond.notify_one();
+}
+
+void FingerprintEngine::onMessageWrapper(const fingerprint_msg_t* msg) {
+    sInstance->onMessage(msg);
+}
+
+void FingerprintEngine::clearLockout(bool dueToTimeout) {
+    CHECK(mCb != nullptr);
+
+    if (isLockoutTimerStarted) isLockoutTimerAborted = true;
+    mLockoutTracker.reset(dueToTimeout);
+    mCb->onLockoutCleared();
+}
+
+void FingerprintEngine::checkSensorLockout() {
+    CHECK(mCb != nullptr);
+
+    LockoutTracker::LockoutMode lockoutMode = mLockoutTracker.getMode();
+    if (lockoutMode == LockoutTracker::LockoutMode::kPermanent) {
+        LOG(ERROR) << "Fail: lockout permanent";
+        mCb->onLockoutPermanent();
+        isLockoutTimerAborted = true;
+    } else if (lockoutMode == LockoutTracker::LockoutMode::kTimed) {
+        int64_t timeLeft = mLockoutTracker.getLockoutTimeLeft();
+        LOG(ERROR) << "Fail: lockout timed " << timeLeft;
+        mCb->onLockoutTimed(timeLeft);
+        if (!isLockoutTimerStarted) startLockoutTimer(timeLeft);
+    }
+}
+
+void FingerprintEngine::startLockoutTimer(int64_t timeout) {
+    auto action = std::bind(&FingerprintEngine::lockoutTimerExpired, this);
+    std::thread([this, timeout, action]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeout));
+        action();
+    }).detach();
+
+    isLockoutTimerStarted = true;
+}
+
+void FingerprintEngine::lockoutTimerExpired() {
+    if (!isLockoutTimerAborted) {
+        clearLockout(true);
+    }
+    isLockoutTimerStarted = false;
+    isLockoutTimerAborted = false;
+}
+
+}  // namespace aidl::android::hardware::biometrics::fingerprint
