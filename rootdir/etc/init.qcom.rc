@@ -66,8 +66,6 @@ import /vendor/etc/init/hw/init.qcom.test.rc
 import /vendor/etc/init/hw/init.target.rc
 import /vendor/etc/init/hw/init.qcom.factory.rc
 
-import /vendor/etc/init/hw/init.fingerprint.gf95xx.rc
-
 on early-init
     mount tracefs tracefs /sys/kernel/tracing
     chmod 0755 /sys/kernel/tracing
