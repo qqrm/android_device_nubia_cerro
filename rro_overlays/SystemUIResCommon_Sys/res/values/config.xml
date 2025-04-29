@@ -20,10 +20,11 @@
       DisplayCutout path will be rendered
        -->
     <string name="config_frontBuiltInDisplayCutoutProtection" translatable="false">
-        M 540,0
-        m -36,52
-        a 36,36 0 1,0 72,0
-        a 36,36 0 1,0 -72,0
+        M 558,0
+        m -34,57
+        a 34,34 0 1,0 68,0
+        a 34,34 0 1,0 -68,0
+        Z
     </string>
 
     <!-- Preferred max refresh rate at keyguard, if supported by the display. -->
