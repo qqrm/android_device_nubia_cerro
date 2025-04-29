@@ -134,6 +134,8 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.biometrics.fingerprint-service.caza
 
+$(call soong_config_set,surfaceflinger,udfps_lib,//$(DEVICE_PATH):libudfps_extension.caza)
+
 # Health
 PRODUCT_PACKAGES += \
     android.hardware.health-service.qti \
