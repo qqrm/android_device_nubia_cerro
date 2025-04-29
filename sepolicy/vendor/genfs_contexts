@@ -1,9 +1,6 @@
 # BMS
 genfscon sysfs /class/qcom-battery                                                                       u:object_r:vendor_sysfs_battery_supply:s0
 
-# Touchpanel
-genfscon proc /touchscreen/wake_gesture                                                                  u:object_r:proc_touchpanel:s0
-
 # USB
 genfscon sysfs /devices/platform/soc/soc:charger_policy_service                                          u:object_r:vendor_sysfs_usb_supply:s0
 
