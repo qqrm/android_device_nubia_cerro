@@ -8,7 +8,7 @@
     <bool name="doze_display_state_supported">true</bool>
 
     <!--  Flag to turn on the rendering of the above path or not  -->
-         <bool name="config_enableDisplayCutoutProtection">true</bool>
+    <bool name="config_enableDisplayCutoutProtection">true</bool>
 
     <!-- A path similar to frameworks/base/core/res/res/values/config.xml
       config_mainBuiltInDisplayCutout that describes a path larger than the exact path of a display
