@@ -1372,6 +1372,7 @@ vendor/etc/public.libraries.txt
 # NFC configs
 vendor/etc/libnfc-hal-st.conf
 vendor/etc/libnfc-nci.conf
+vendor/etc/st54l_conf.txt
 
 # NFC firmware
 vendor/firmware/st54l_fw.bin
