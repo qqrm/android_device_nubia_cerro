@@ -50,8 +50,8 @@ PRODUCT_PACKAGES += \
     android.hardware.bluetooth.audio-impl \
     android.hardware.soundtrigger@2.3-impl \
     audio.bluetooth.default \
-    audio.usb.default \
     audio.r_submix.default \
+    audio.usb.default \
     libagmmixer \
     libagm_compress_plugin \
     libagm_mixer_plugin \
