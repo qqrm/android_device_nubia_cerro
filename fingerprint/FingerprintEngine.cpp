@@ -17,8 +17,6 @@
 
 using namespace std::chrono;
 
-constexpr int ENROLL_TIMEOUT = 60;
-
 namespace aidl::android::hardware::biometrics::fingerprint {
 
 static FingerprintEngine* sInstance;
