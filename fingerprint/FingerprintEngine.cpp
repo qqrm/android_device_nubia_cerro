@@ -327,25 +327,20 @@ void FingerprintEngine::enumerateEnrollmentsImpl() {
         return;
     }
 
-    while (true) {
-        auto msg = waitForMessage();
+    auto msg = waitForMessage();
 
-        if (msg.type != FINGERPRINT_TEMPLATE_ENUMERATING) {
-            LOG(ERROR) << "Unexpected message type: " << msg.type;
-            continue;
-        }
+    if (msg.type != FINGERPRINT_TEMPLATE_ENUMERATING) {
+        LOG(ERROR) << "Unexpected message type: " << msg.type;
+        return;
+    }
 
-        LOG(INFO) << "onEnumerate(fid=" << msg.data.enumerated.finger.fid
-                  << ", rem=" << msg.data.enumerated.remaining_templates << ")";
+    for (unsigned int i = 0; i < NUM_FINGERS; i++) {
+        int32_t fid = msg.data.enumerated.fingers[i].fid;
 
-        if (!msg.data.enumerated.finger.fid) {
-            break;
-        }
+        LOG(INFO) << "onEnumerate(i=" << i << ", fid=" << fid << ")";
 
-        enrollmentIds.push_back(msg.data.enumerated.finger.fid);
-
-        if (!msg.data.enumerated.remaining_templates) {
-            break;
+        if (fid) {
+            enrollmentIds.push_back(fid);
         }
     }
 
@@ -364,27 +359,26 @@ void FingerprintEngine::removeEnrollmentsImpl(const std::vector<int32_t>& enroll
     }
 
     std::vector<int32_t> removedEnrollmentIds;
-    while (true) {
-        auto msg = waitForMessage();
+    auto msg = waitForMessage();
 
-        if (msg.type == FINGERPRINT_ERROR) {
-            auto ec = convertError(msg.data.error);
-            printError(ec);
-            break;
-        }
+    if (msg.type == FINGERPRINT_ERROR) {
+        auto ec = convertError(msg.data.error);
+        printError(ec);
+        return;
+    }
 
-        if (msg.type != FINGERPRINT_TEMPLATE_REMOVED) {
-            LOG(ERROR) << "Unexpected message type: " << msg.type;
-            continue;
-        }
+    if (msg.type != FINGERPRINT_TEMPLATE_REMOVED) {
+        LOG(ERROR) << "Unexpected message type: " << msg.type;
+        return;
+    }
 
-        LOG(INFO) << "onRemove(fid=" << msg.data.removed.finger.fid
-                  << ", rem=" << msg.data.removed.remaining_templates << ")";
+    for (unsigned int i = 0; i < NUM_FINGERS; i++) {
+        int32_t fid = msg.data.enumerated.fingers[i].fid;
 
-        removedEnrollmentIds.push_back(msg.data.removed.finger.fid);
+        LOG(INFO) << "onRemove(i=" << i << ", fid=" << fid << ")";
 
-        if (!msg.data.removed.remaining_templates) {
-            break;
+        if (fid) {
+            removedEnrollmentIds.push_back(fid);
         }
     }
 
