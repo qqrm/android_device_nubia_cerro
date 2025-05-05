@@ -1909,6 +1909,7 @@ vendor/firmware/vpu33_4v_unsigned.mbn
 vendor/lib64/libubwcp.so
 
 # Widevine DRM
+vendor/apex/com.google.android.widevine.nonupdatable.apex
 vendor/etc/vintf/manifest/android.hardware.drm-service.xml
 
 # WiFi
