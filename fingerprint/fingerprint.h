@@ -56,9 +56,9 @@ typedef struct fingerprint_enroll {
     uint64_t msg;
 } fingerprint_enroll_t;
 
-typedef struct fingerprint_iterator_t {
+typedef struct fingerprint_iterator {
     fingerprint_finger_id_t fingers[NUM_FINGERS];
-};
+} fingerprint_iterator_t;
 
 typedef fingerprint_iterator_t fingerprint_enumerated_t;
 typedef fingerprint_iterator_t fingerprint_removed_t;
