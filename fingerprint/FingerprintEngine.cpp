@@ -500,8 +500,11 @@ std::pair<AcquiredInfo, int32_t> FingerprintEngine::convertAcquiredInfo(int32_t 
     if (code > FINGERPRINT_ACQUIRED_VENDOR_BASE) {
         res.first = AcquiredInfo::VENDOR;
         res.second = code - FINGERPRINT_ACQUIRED_VENDOR_BASE;
+    } else if (code == FINGERPRINT_ACQUIRED_GOOD) {
+        res.first = AcquiredInfo::GOOD;
+        res.second = 0;
     } else {
-        res.first = (AcquiredInfo)code;
+        res.first = AcquiredInfo::UNKNOWN;
         res.second = 0;
     }
     return res;
