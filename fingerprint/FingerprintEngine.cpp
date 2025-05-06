@@ -291,10 +291,10 @@ void FingerprintEngine::authenticateImpl(int64_t operationId, const std::future<
 
         LOG(INFO) << "onAuthenticated(fid=" << msg.data.authenticated.finger.fid << ")";
 
-        if (msg.data.authenticated.finger.fid != 0) {
-            auto msg = waitForMessage();
-            CHECK(msg.type == GF_FINGERPRINT_BIG_DATA);
+        auto bigDataMsg = waitForMessage();
+        CHECK(bigDataMsg.type == GF_FINGERPRINT_BIG_DATA);
 
+        if (msg.data.authenticated.finger.fid != 0) {
             const hw_auth_token_t hat = msg.data.authenticated.hat;
             keymaster::HardwareAuthToken authToken;
             translate(hat, authToken);
