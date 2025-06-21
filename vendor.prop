@@ -146,6 +146,7 @@ vendor.camera.aux.packagelist=com.android.camera
 
 # Crypto
 ro.crypto.metadata_init_delete_all_keys.enabled=true
+ro.hardware.keystore_desede=true
 
 # Display
 ro.surface_flinger.force_hwc_copy_for_virtual_displays=true
