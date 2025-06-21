@@ -174,6 +174,9 @@ blob_fixups: blob_fixups_user_type = {
         .add_needed('libhidlbase_shim.so'),
     'vendor/lib64/libril-db.so': blob_fixup()
         .binary_regex_replace(rb'persist\.vendor\.radio\.poweron_opt', rb'persist.vendor.radio.poweron_ign'),
+    'system/priv-app/NubiaCamera/NubiaCamera.apk': blob_fixup().apktool_patch(
+        'patches/0001-NubiaCamera-disable-SettingHighFps.patch', '-r'
+    ),
 }  # fmt: skip
 
 module = ExtractUtilsModule(
