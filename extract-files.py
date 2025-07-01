@@ -176,7 +176,7 @@ blob_fixups: blob_fixups_user_type = {
     'vendor/lib64/libril-db.so': blob_fixup()
         .binary_regex_replace(rb'persist\.vendor\.radio\.poweron_opt', rb'persist.vendor.radio.poweron_ign'),
     'system/priv-app/NubiaCamera/NubiaCamera.apk': blob_fixup().apktool_patch(
-        'nubia-camera-patches', '-r'
+        'nubia-camera-patches'
     ),
     'vendor/lib64/hw/sensors.hal.tof.so': blob_fixup()
         .binary_regex_replace(b'\x00input\x00', b'\x00fakei\x00'),
