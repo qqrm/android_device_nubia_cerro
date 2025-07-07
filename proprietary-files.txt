@@ -29,6 +29,10 @@ vendor/lib64/camera/com.zte.tuned.zte_imx906_cerro.bin
 vendor/lib64/camera/com.zte.tuned.zte_ov12d2q_cerro.bin
 vendor/lib64/camera/com.zte.tuned.zte_ov50e40_cerro.bin
 vendor/lib64/camera/com.zte.tuned.zte_ov64b40_cerro.bin
+vendor/lib64/hw/camera.qcom.sm8650.so
+vendor/lib64/hw/camera.qcom.so
+vendor/lib64/hw/com.qti.chi.offline.so
+vendor/lib64/hw/com.qti.chi.override.so
 vendor/lib64/com.qti.camx.chiiqutils.so
 vendor/lib64/com.qti.chiusecaseselector.so
 vendor/lib64/com.qti.feature2.afbrckt.so
@@ -60,10 +64,9 @@ vendor/lib64/com.qualcomm.mcx.linearmapper.so
 vendor/lib64/com.qualcomm.mcx.nonlinearmapper.so
 vendor/lib64/com.qualcomm.mcx.policy.mfl.so
 vendor/lib64/com.qualcomm.qti.mcx.usecase.extension.so
-vendor/lib64/hw/camera.qcom.sm8650.so
-vendor/lib64/hw/camera.qcom.so
-vendor/lib64/hw/com.qti.chi.offline.so
-vendor/lib64/hw/com.qti.chi.override.so
+vendor/lib64/libQnnHtpV75CalculatorStub.so
+vendor/lib64/libQnnJsonProfilingReader.so
+vendor/lib64/libVNSInterface.so
 vendor/lib64/libarcsoft_hp_detection.so
 vendor/lib64/libarcsoft_picselfie.so
 vendor/lib64/libarcsoft_qnnhtp.so
@@ -73,15 +76,13 @@ vendor/lib64/libarcsoft_superportrait.so
 vendor/lib64/libcamerapostproc.so
 vendor/lib64/libcamxarcskinbeautiful.so
 vendor/lib64/libcamxdepthbokeharc.so
+vendor/lib64/libcamxncsdatafactory.so
 vendor/lib64/libcamxremovefringer.so
 vendor/lib64/libcamxselfiebokeharc.so
-vendor/lib64/libcamxncsdatafactory.so
 vendor/lib64/libcamxskytone.so
 vendor/lib64/libcamxsuperres.so
 vendor/lib64/libcamxwidelencalc.so
 vendor/lib64/libchifeature2.so
-vendor/lib64/libQnnHtpV75CalculatorStub.so
-vendor/lib64/libQnnJsonProfilingReader.so
 vendor/lib64/librmca.so
 vendor/lib64/libsky_cls_320.so
 vendor/lib64/libsky_seg_320.so
@@ -90,7 +91,6 @@ vendor/lib64/libsr_x1_272_272_12.so
 vendor/lib64/libsr_x2_272_272_12.so
 vendor/lib64/libsr_x4_272_272_12.so
 vendor/lib64/libtflite_model_depurple_544_544.so
-vendor/lib64/libVNSInterface.so
 vendor/lib64/libyuv_sr.so
 
 # Camera app
@@ -103,29 +103,29 @@ vendor/lib64/camera/components/libcamxevainterface.so
 
 # Camera configs
 vendor/etc/camera/adaptive_config/mfnr_network_denoise_config.xml
-vendor/etc/camera/adaptive_shutter_config.xml
-vendor/etc/camera/adaptive_shutter_config_moon.xml
-vendor/etc/camera/adaptive_shutter_config_night.xml
-vendor/etc/camera/adaptive_shutter_config_renwen.xml
 vendor/etc/camera/beautiful_app/preference_beautify0.json
 vendor/etc/camera/beautiful_app/preference_beautify1.json
 vendor/etc/camera/beautiful_app/preference_beautify2.json
-vendor/etc/camera/mfnr_network_denoise_config.xml
-vendor/etc/camera/mfnr_network_denoise_config_moon.xml
-vendor/etc/camera/mfnr_network_denoise_config_night.xml
-vendor/etc/camera/mfnr_network_denoise_config_renwen.xml
 vendor/etc/camera/debug/camxoverridesettings.txt
-vendor/etc/camera/dualcam_cali.bin
-vendor/etc/camera/eisoverridesettings.txt
 vendor/etc/camera/icon/water_mark_drawable_black.argb
 vendor/etc/camera/icon/water_mark_drawable_black_eng.argb
 vendor/etc/camera/icon/water_mark_drawable_white.argb
 vendor/etc/camera/icon/water_mark_drawable_white_eng.argb
+vendor/etc/camera/VNSConfig_4k.xml
+vendor/etc/camera/VNSQnnBinary.bin
+vendor/etc/camera/adaptive_shutter_config.xml
+vendor/etc/camera/adaptive_shutter_config_moon.xml
+vendor/etc/camera/adaptive_shutter_config_night.xml
+vendor/etc/camera/adaptive_shutter_config_renwen.xml
+vendor/etc/camera/dualcam_cali.bin
+vendor/etc/camera/eisoverridesettings.txt
+vendor/etc/camera/mfnr_network_denoise_config.xml
+vendor/etc/camera/mfnr_network_denoise_config_moon.xml
+vendor/etc/camera/mfnr_network_denoise_config_night.xml
+vendor/etc/camera/mfnr_network_denoise_config_renwen.xml
 vendor/etc/camera/sr_x1_272_272_12Binary.bin
 vendor/etc/camera/sr_x2_272_272_12Binary.bin
 vendor/etc/camera/sr_x4_272_272_12Binary.bin
-vendor/etc/camera/VNSConfig_4k.xml
-vendor/etc/camera/VNSQnnBinary.bin
 vendor/etc/camera/widelencalc_cali.bin
 
 # Camera components
