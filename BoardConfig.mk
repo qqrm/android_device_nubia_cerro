@@ -8,3 +8,6 @@ include device/nubia/sm8650-common/BoardConfigCommon.mk
 # Kernel
 TARGET_KERNEL_CONFIG += \
     oem/boards/cerro_diff.config
+
+# Properties
+TARGET_VENDOR_PROP += $(DEVICE_PATH)/vendor.prop
