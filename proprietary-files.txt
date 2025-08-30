@@ -1,4 +1,4 @@
-# Extracted from NebulaOS
+# All unpinned blobs below are extracted from NebulaAIOS1.0.18MR_NX721J_V
 
 # ACDB
 vendor/etc/acdbdata/pineapple_mtp/MTP_acdb_cal.acdb
