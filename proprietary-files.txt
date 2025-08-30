@@ -192,6 +192,9 @@ vendor/etc/sensors/config/lanai_lsm6dso_0.json
 vendor/etc/sensors/config/lanai_mtp_ak991x_0.json
 vendor/etc/sensors/config/lanai_stk3b6x_0.json
 
+# Thermal config
+vendor/etc/thermal-engine.conf
+
 # Firmware
 vendor/firmware/aw882xx_acf.bin
 vendor/firmware/goodix_cfg_group_9916r.bin
