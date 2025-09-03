@@ -4,6 +4,9 @@
 vendor/etc/acdbdata/pineapple_mtp/MTP_acdb_cal.acdb
 vendor/etc/acdbdata/pineapple_mtp/MTP_workspaceFileXml.qwsp
 
+# Audio firmware
+vendor/firmware/aw882xx_acf.bin
+
 # Camera
 vendor/lib64/camera/com.qti.ois.ois_dw9781_cerro_ov64b40.so
 vendor/lib64/camera/com.qti.ois.ois_dw9784_cerro_imx800.so
@@ -98,7 +101,17 @@ system/etc/pictureclassifier/MultiScenePictureClassifier.tflite
 system/priv-app/NubiaCamera/NubiaCamera.apk
 
 # Camera components
+vendor/lib64/camera/components/com.qti.stats.aec.so
+vendor/lib64/camera/components/com.qti.stats.af.so
+vendor/lib64/camera/components/com.zte.node.aicud.so
+vendor/lib64/camera/components/com.zte.node.capturepostprocess.so
+vendor/lib64/camera/components/com.zte.node.capturereprocess.so
+vendor/lib64/camera/components/com.zte.node.capturescale.so
 vendor/lib64/camera/components/com.zte.node.mcxrealtimepostprocess.so
+vendor/lib64/camera/components/com.zte.node.rawsvq.so
+vendor/lib64/camera/components/com.zte.node.realtimepostprocess.so
+vendor/lib64/camera/components/com.zte.node.sat.so
+vendor/lib64/camera/components/com.zte.node.satpostprocess.so
 vendor/lib64/camera/components/libcamxevainterface.so
 
 # Camera configs
@@ -127,18 +140,6 @@ vendor/etc/camera/sr_x1_272_272_12Binary.bin
 vendor/etc/camera/sr_x2_272_272_12Binary.bin
 vendor/etc/camera/sr_x4_272_272_12Binary.bin
 vendor/etc/camera/widelencalc_cali.bin
-
-# Camera components
-vendor/lib64/camera/components/com.qti.stats.aec.so
-vendor/lib64/camera/components/com.qti.stats.af.so
-vendor/lib64/camera/components/com.zte.node.aicud.so
-vendor/lib64/camera/components/com.zte.node.capturepostprocess.so
-vendor/lib64/camera/components/com.zte.node.capturereprocess.so
-vendor/lib64/camera/components/com.zte.node.capturescale.so
-vendor/lib64/camera/components/com.zte.node.rawsvq.so
-vendor/lib64/camera/components/com.zte.node.realtimepostprocess.so
-vendor/lib64/camera/components/com.zte.node.sat.so
-vendor/lib64/camera/components/com.zte.node.satpostprocess.so
 
 # Camera firmware
 vendor/firmware/CAMERA_ICP.b20
@@ -195,10 +196,11 @@ vendor/etc/sensors/config/lanai_stk3b6x_0.json
 # Thermal config
 vendor/etc/thermal-engine.conf
 
-# Firmware
-vendor/firmware/aw882xx_acf.bin
+# Touchscreen firmware
 vendor/firmware/goodix_cfg_group_9916r.bin
 vendor/firmware/goodix_firmware_9916r.bin
+
+# Vibrator firmware
 vendor/firmware/haptic_ram.bin
 
 # VPU firmware
