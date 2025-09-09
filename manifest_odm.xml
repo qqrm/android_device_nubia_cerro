@@ -1,0 +1,10 @@
+<!--
+    Input:
+        vendor/zte/st-nfc/build/manifest_se_aidl.xml
+-->
+<manifest version="7.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.secure_element</name>
+        <fqname>ISecureElement/eSE1</fqname>
+    </hal>
+</manifest>

@@ -5,6 +5,10 @@
 
 include device/nubia/sm8650-common/BoardConfigCommon.mk
 
+# HIDL
+ODM_MANIFEST_FILES += \
+    $(DEVICE_PATH)/manifest_odm.xml
+
 # Kernel
 TARGET_KERNEL_CONFIG += \
     oem/boards/cerro_diff.config
