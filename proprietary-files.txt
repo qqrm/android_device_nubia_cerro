@@ -69,6 +69,7 @@ vendor/lib64/com.qualcomm.mcx.policy.mfl.so
 vendor/lib64/com.qualcomm.qti.mcx.usecase.extension.so
 vendor/lib64/libQnnHtpV75CalculatorStub.so
 vendor/lib64/libQnnJsonProfilingReader.so
+vendor/lib64/libVNSDenoise.so;FIX_SONAME
 vendor/lib64/libVNSInterface.so
 vendor/lib64/libarcsoft_hp_detection.so
 vendor/lib64/libarcsoft_picselfie.so
@@ -120,6 +121,12 @@ vendor/etc/camera/beautiful_app/preference_beautify0.json
 vendor/etc/camera/beautiful_app/preference_beautify1.json
 vendor/etc/camera/beautiful_app/preference_beautify2.json
 vendor/etc/camera/debug/camxoverridesettings.txt
+vendor/etc/camera/icon/colorfilter_building.png
+vendor/etc/camera/icon/colorfilter_cloud.png
+vendor/etc/camera/icon/colorfilter_food.png
+vendor/etc/camera/icon/colorfilter_mountain.png
+vendor/etc/camera/icon/colorfilter_sun.png
+vendor/etc/camera/icon/colorfilter_water.png
 vendor/etc/camera/icon/water_mark_drawable_black.argb
 vendor/etc/camera/icon/water_mark_drawable_black_eng.argb
 vendor/etc/camera/icon/water_mark_drawable_white.argb
