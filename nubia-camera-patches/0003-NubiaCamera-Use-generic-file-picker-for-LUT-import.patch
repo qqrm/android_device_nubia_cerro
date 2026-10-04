@@ -1,0 +1,45 @@
+From 6ba3c472569f11069a8a84ae039eb3bcbbe5f2be Mon Sep 17 00:00:00 2001
+From: "hiroshi." <hiroshi@tanuki.page>
+Date: Sat, 3 Oct 2026 20:24:00 -0400
+Subject: [PATCH] NubiaCamera: Use generic file picker for LUT import
+
+10-03 19:14:51.949 28097 28097 E AndroidRuntime: Process: com.android.camera, PID: 28097
+10-03 19:14:51.949 28097 28097 E AndroidRuntime: android.content.ActivityNotFoundException: No Activity found to handle Intent { act=intent.action.SELECT_CUBE_FILE xflg=0x4 }
+10-03 19:14:51.949 28097 28097 E AndroidRuntime:        at android.app.Instrumentation.checkStartActivityResult(Instrumentation.java:2462)
+10-03 19:14:51.949 28097 28097 E AndroidRuntime:        at android.app.Instrumentation.execStartActivity(Instrumentation.java:2029)
+10-03 19:14:51.949 28097 28097 E AndroidRuntime:        at android.app.Activity.startActivityForResult(Activity.java:6070)
+10-03 19:14:51.949 28097 28097 E AndroidRuntime:        at android.app.Activity.startActivityForResult(Activity.java:6027)
+10-03 19:14:51.949 28097 28097 E AndroidRuntime:        at cn.nubia.camera.effect.EffectPageManager$10.onClick(EffectPageManager.java:754)
+10-03 19:14:51.949 28097 28097 E AndroidRuntime:        at cn.nubia.camera.effect.EffectFactoryAdapter$1.onClick(EffectFactoryAdapter.java:143)
+10-03 19:14:51.949 28097 28097 E AndroidRuntime:        at android.view.View.performClick(View.java:8241)
+---
+ .../cn/nubia/camera/effect/EffectPageManager$10.smali  | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/smali/cn/nubia/camera/effect/EffectPageManager$10.smali b/smali/cn/nubia/camera/effect/EffectPageManager$10.smali
+index f7db35d7..4da6c674 100644
+--- a/smali/cn/nubia/camera/effect/EffectPageManager$10.smali
++++ b/smali/cn/nubia/camera/effect/EffectPageManager$10.smali
+@@ -60,10 +60,18 @@
+     .line 753
+     new-instance p1, Landroid/content/Intent;
+ 
+-    const-string p2, "intent.action.SELECT_CUBE_FILE"
++    const-string p2, "android.intent.action.OPEN_DOCUMENT"
+ 
+     invoke-direct {p1, p2}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
+ 
++    const-string p2, "*/*"
++
++    invoke-virtual {p1, p2}, Landroid/content/Intent;->setType(Ljava/lang/String;)Landroid/content/Intent;
++
++    const-string p2, "android.intent.category.OPENABLE"
++
++    invoke-virtual {p1, p2}, Landroid/content/Intent;->addCategory(Ljava/lang/String;)Landroid/content/Intent;
++
+     .line 754
+     iget-object p0, p0, Lcn/nubia/camera/effect/EffectPageManager$10;->this$0:Lcn/nubia/camera/effect/EffectPageManager;
+ 
+-- 
+2.43.0
+
