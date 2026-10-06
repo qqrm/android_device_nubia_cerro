@@ -3,3 +3,10 @@ ro.vendor.feature.camera_series_info=NubiaZ60Ultra
 ro.vendor.feature.camera_zte_exif_model=nubia Z60 Ultra
 ro.vendor.feature.nubia.exif.module=NUBIA_Z60_ULTRA
 ro.vendor.product.ztename=nubia Z60 Ultra
+
+# Slider
+ro.vendor.slider.code=40
+ro.vendor.slider.direction=up
+ro.vendor.slider.edge=right
+ro.vendor.slider.input_name=gpio-keys_nubia
+ro.vendor.slider.offset_pixels=1548

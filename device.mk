@@ -20,5 +20,10 @@ PRODUCT_SOONG_NAMESPACES += \
 PRODUCT_PACKAGES += \
     SettingsProviderResCerro
 
+# Slider
+PRODUCT_PACKAGES += \
+    LineageSlider \
+    vendor.lineage.slider-service.default
+
 # Inherit from proprietary targets
 $(call inherit-product, vendor/nubia/cerro/cerro-vendor.mk)
