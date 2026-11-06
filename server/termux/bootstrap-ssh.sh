@@ -15,7 +15,9 @@ if [ "$#" -eq 2 ]; then
     wake_lock=1
 fi
 [ -f "$public_key" ] || fail 'Supply the deployment public key (.pub), not a private key.'
-[ -n "${PREFIX:-}" ] && [ -n "${HOME:-}" ] || fail 'Run this script inside Termux.'
+if [ -z "${PREFIX:-}" ] || [ -z "${HOME:-}" ]; then
+    fail 'Run this script inside Termux.'
+fi
 case $HOME in /*) ;; *) fail 'Termux HOME must be an absolute path.' ;; esac
 case $PREFIX in /*) ;; *) fail 'Termux PREFIX must be an absolute path.' ;; esac
 # These paths are also written into sshd_config and the boot-script shebang.
@@ -42,12 +44,12 @@ trap 'exit 1' 1 2 15
 # Accept a single ordinary .pub line, including one copied from Windows.
 tr -d '\r' < "$public_key" > "$work/public-key"
 [ "$(awk 'END { print NR }' "$work/public-key")" = 1 ] || fail 'Supply exactly one Ed25519 public-key line.'
-key_type= key_data= key_comment=
-IFS=' ' read -r key_type key_data key_comment < "$work/public-key" || true
+key_type='' key_data='' _key_comment=''
+IFS=' ' read -r key_type key_data _key_comment < "$work/public-key" || true
 [ "$key_type" = ssh-ed25519 ] || fail 'Supply an Ed25519 public key created with ssh-keygen -t ed25519.'
 case $key_data in ''|*[!A-Za-z0-9+/=]*) fail 'Invalid public-key encoding.' ;; esac
 "$PREFIX/bin/ssh-keygen" -l -f "$work/public-key" >/dev/null 2>&1 || fail 'Invalid Ed25519 public key.'
-unset key_comment
+unset _key_comment
 
 state=$HOME/.ssh/cerro-sshd
 for directory in "$HOME/.ssh" "$state" "$HOME/.termux" "$HOME/.termux/boot"; do
