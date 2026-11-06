@@ -153,6 +153,7 @@ def main():
         dependencies[name] = needed
         target.chmod(0o755)
     shutil.copy2(ROOT / "server/cerro.py", package / "cerro.py")
+    shutil.copy2(ROOT / "server/phone.py", package / "phone.py")
     shutil.copytree(ROOT / "server/device", package / "device")
     shutil.copy2(ROOT / "server/README.md", package / "README.md")
     shutil.copytree(ROOT / "server/termux", package / "termux")

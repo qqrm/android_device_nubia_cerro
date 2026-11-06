@@ -1,0 +1,146 @@
+name: Deploy to Cerro phone
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'check: SSH readiness; deploy: build, update and test inference'
+        type: choice
+        required: true
+        default: check
+        options: [check, deploy, start, stop, status]
+
+permissions:
+  contents: read
+
+# Never cancel a phone update because another run was requested.
+concurrency:
+  group: cerro-phone
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  settings:
+    name: Check phone configuration
+    if: github.repository == 'qqrm/android_device_nubia_cerro' && github.ref == 'refs/heads/server-lite'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    environment: phone
+    steps:
+      - name: Require one-time configuration
+        env:
+          PHONE_HOST: ${{ vars.PHONE_HOST }}
+          PHONE_USER: ${{ vars.PHONE_USER }}
+          TS_CLIENT_ID: ${{ vars.TS_CLIENT_ID }}
+          TS_AUDIENCE: ${{ vars.TS_AUDIENCE }}
+          PHONE_SSH_KEY: ${{ secrets.PHONE_SSH_KEY }}
+          PHONE_KNOWN_HOSTS: ${{ secrets.PHONE_KNOWN_HOSTS }}
+        run: |
+          missing=0
+          for name in PHONE_HOST PHONE_USER TS_CLIENT_ID TS_AUDIENCE PHONE_SSH_KEY PHONE_KNOWN_HOSTS; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing phone environment setting: ${name}. See server/termux/DEPLOY.md."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+  build:
+    name: Build trusted Android kit
+    needs: settings
+    if: inputs.operation == 'deploy'
+    uses: ./.github/workflows/server-kit.yml
+    permissions:
+      contents: read
+    # No phone credentials or OIDC permission are passed to the build.
+
+  phone:
+    name: Connect and operate phone
+    needs: [settings, build]
+    if: >-
+      always() && !cancelled() && needs.settings.result == 'success' &&
+      (inputs.operation != 'deploy' || needs.build.result == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: phone
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout trusted phone tools
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Download this run's Android kit
+        if: inputs.operation == 'deploy'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: cerro-server-android-arm64-cpu
+          path: dist
+
+      - name: Verify archive and bundle before connecting
+        if: inputs.operation == 'deploy'
+        working-directory: dist
+        run: |
+          sha256sum -c cerro-server-android-arm64-cpu.tar.gz.sha256
+          mkdir unpacked
+          tar --extract --gzip --file cerro-server-android-arm64-cpu.tar.gz --directory unpacked --no-same-owner --no-same-permissions
+          python3 ../server/cerro.py verify --bundle unpacked/cerro-server
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          provenance = json.loads(Path('unpacked/cerro-server/provenance.json').read_text())
+          if provenance['kit_commit'] != os.environ['GITHUB_SHA']:
+              raise SystemExit('Bundle commit does not match this workflow run')
+          PY
+
+      - name: Prepare pinned SSH identity
+        env:
+          PHONE_SSH_KEY: ${{ secrets.PHONE_SSH_KEY }}
+          PHONE_KNOWN_HOSTS: ${{ secrets.PHONE_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p "${RUNNER_TEMP}/cerro-ssh"
+          printf '%s\n' "$PHONE_SSH_KEY" > "${RUNNER_TEMP}/cerro-ssh/key"
+          printf '%s\n' "$PHONE_KNOWN_HOSTS" > "${RUNNER_TEMP}/cerro-ssh/known_hosts"
+          ssh-keygen -y -P '' -f "${RUNNER_TEMP}/cerro-ssh/key" > /dev/null
+          ssh-keygen -F cerro-phone -f "${RUNNER_TEMP}/cerro-ssh/known_hosts" > /dev/null
+
+      - name: Join private phone network
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
+        with:
+          oauth-client-id: ${{ vars.TS_CLIENT_ID }}
+          audience: ${{ vars.TS_AUDIENCE }}
+          tags: tag:cerro-ci
+          version: 1.104.4
+          use-cache: 'false'
+          log-mode: quiet
+          ping: ${{ vars.PHONE_HOST }}
+
+      - name: Run selected operation
+        env:
+          PHONE_HOST: ${{ vars.PHONE_HOST }}
+          PHONE_USER: ${{ vars.PHONE_USER }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          args=(--host "$PHONE_HOST" --user "$PHONE_USER" --port 8022
+                --ssh-key "${RUNNER_TEMP}/cerro-ssh/key"
+                --known-hosts "${RUNNER_TEMP}/cerro-ssh/known_hosts")
+          case "$OPERATION" in
+            deploy)
+              python3 server/phone.py "${args[@]}" deploy --bundle dist/unpacked/cerro-server
+              ;;
+            check|start|stop|status)
+              python3 server/phone.py "${args[@]}" "$OPERATION"
+              ;;
+            *) echo '::error::Unsupported operation'; exit 1 ;;
+          esac
+          printf '## Phone operation\n\n`%s` completed successfully over pinned SSH.\n' "$OPERATION" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove temporary SSH credentials
+        if: always()
+        run: rm -rf -- "${RUNNER_TEMP}/cerro-ssh"
