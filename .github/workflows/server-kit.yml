@@ -2,18 +2,19 @@ name: Build minimal Android server
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [server-lite]
-    paths: ['server/**', '.github/workflows/server-kit.yml', 'README.md']
+    paths: ['server/**', '.github/workflows/server-kit.yml', '.github/workflows/deploy-phone.yml', 'README.md']
   pull_request:
     branches: [server-lite]
-    paths: ['server/**', '.github/workflows/server-kit.yml', 'README.md']
+    paths: ['server/**', '.github/workflows/server-kit.yml', '.github/workflows/deploy-phone.yml', 'README.md']
 
 permissions:
   contents: read
 
 concurrency:
-  group: server-kit-${{ github.event.pull_request.number || github.ref }}
+  group: server-kit-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -32,9 +33,10 @@ jobs:
           persist-credentials: false
       - name: Validate Python and device shell
         run: |
-          python3 -m py_compile server/build.py server/cerro.py
+          python3 -m py_compile server/build.py server/cerro.py server/phone.py
           sh -n server/device/run-server.sh
-          shellcheck --shell=sh server/device/run-server.sh
+          sh -n server/termux/bootstrap-ssh.sh
+          shellcheck --shell=sh server/device/run-server.sh server/termux/bootstrap-ssh.sh
       - name: Exercise host tools
         run: python3 -m unittest discover -s server/tests -v
 
