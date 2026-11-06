@@ -116,15 +116,21 @@ case ${1:-} in
     install)
         stage=${2:-}
         suffix=${stage#"$ROOT/.stage-"}
-        [ "$stage" != "$suffix" ] && [ "${#suffix}" -eq 32 ] || fail 'Invalid staging directory.'
+        if [ "$stage" = "$suffix" ] || [ "${#suffix}" -ne 32 ]; then
+            fail 'Invalid staging directory.'
+        fi
         case $suffix in *[!0-9a-f]*) fail 'Invalid staging directory.' ;; esac
-        [ -d "$stage" ] && [ ! -L "$stage" ] || fail 'Staging directory is missing.'
+        if [ ! -d "$stage" ] || [ -L "$stage" ]; then
+            fail 'Staging directory is missing.'
+        fi
         lock
         if server_pid >/dev/null; then
             fail 'Stop the running server before deploying another kit or model.'
         fi
         for file in bin/llama-server device/run-server.sh provenance.json models/model.gguf config/api-key; do
-            [ -f "$stage/$file" ] && [ ! -L "$stage/$file" ] || fail 'Staged payload is incomplete.'
+            if [ ! -f "$stage/$file" ] || [ -L "$stage/$file" ]; then
+                fail 'Staged payload is incomplete.'
+            fi
         done
         (cd "$stage" && sha256sum -c upload.sha256 >/dev/null) || fail 'Transferred payload checksum failed.'
         key=$(cat "$stage/config/api-key")
