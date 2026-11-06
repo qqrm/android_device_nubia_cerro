@@ -180,10 +180,11 @@ printf '[127.0.0.1]:8022 %s\\n' "$key"
         if result.returncode and result.stderr.strip().startswith("Missing privilege separation directory:"):
             self.skipTest("This executor has no OpenSSH privilege-separation directory; CI runs this check as its ordinary runner user")
         self.assertEqual(result.returncode, 0, result.stderr)
-        settings = result.stdout.splitlines()
+        settings = [line.strip() for line in result.stdout.splitlines()]
         for expected in (
             "port 8022", "authenticationmethods publickey", "passwordauthentication no",
             "kbdinteractiveauthentication no", "allowtcpforwarding local",
+            "allowstreamlocalforwarding no",
             "permitopen 127.0.0.1:8080", "permittty no", "subsystem sftp internal-sftp",
         ):
             self.assertIn(expected, settings)

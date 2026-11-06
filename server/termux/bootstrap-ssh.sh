@@ -102,6 +102,7 @@ PermitTTY no
 PermitUserRC no
 PermitUserEnvironment no
 AllowTcpForwarding local
+AllowStreamLocalForwarding no
 PermitOpen 127.0.0.1:8080
 GatewayPorts no
 PermitTunnel no
