@@ -9,7 +9,10 @@ GitHub Actions собирает `llama-server` и `llama-bench` под Android a
 
 - [Сборка и запуск серверного набора](server/README.md).
 - [SSH и отдельная установка в Termux](server/termux/README.md).
+- [Доступ и deployment из GitHub Actions через домашний NAT](server/termux/DEPLOY.md).
+- [Задание локальному агенту для настройки телефона](server/termux/LOCAL_AGENT.md).
 - [GitHub Actions](https://github.com/qqrm/android_device_nubia_cerro/actions/workflows/server-kit.yml): `Build minimal Android server`.
+- [Управление телефоном](https://github.com/qqrm/android_device_nubia_cerro/actions/workflows/deploy-phone.yml): `Deploy to Cerro phone`.
 
 Набор работает поверх существующей прошивки. Это исходный CPU-вариант для замеров;
 работа на NX721J, выключенный экран, автозапуск и GPU/NPU требуют проверки на устройстве.

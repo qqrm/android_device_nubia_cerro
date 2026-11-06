@@ -4,6 +4,9 @@
 Используется существующий Android с его драйверами, Wi-Fi, зарядкой и терморегулированием.
 Это исходный вариант для замеров на CPU; Adreno/NPU пока не проверены. Веб-интерфейс отключён.
 
+Для управления телефоном из GitHub Actions через домашний NAT используй
+[Termux + Tailscale deployment](termux/DEPLOY.md). Ниже — прежний самостоятельный путь через ADB.
+
 ## 1. Собрать в GitHub Actions
 
 1. Открой [Build minimal Android server](https://github.com/qqrm/android_device_nubia_cerro/actions/workflows/server-kit.yml).
