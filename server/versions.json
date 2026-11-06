@@ -1,0 +1,8 @@
+{
+  "llama_repository": "ggml-org/llama.cpp",
+  "llama_commit": "6c01da6278ab6c69ed67d9124806b50d2b299ba7",
+  "llama_version": "b12177",
+  "ndk_version": "29.0.14206865",
+  "android_api": 28,
+  "abi": "arm64-v8a"
+}

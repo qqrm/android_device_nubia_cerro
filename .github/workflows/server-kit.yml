@@ -1,0 +1,90 @@
+name: Build minimal Android server
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [server-lite]
+    paths: ['server/**', '.github/workflows/server-kit.yml', 'README.md']
+  pull_request:
+    branches: [server-lite]
+    paths: ['server/**', '.github/workflows/server-kit.yml', 'README.md']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-kit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    name: Host tools
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout kit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Validate Python and device shell
+        run: |
+          python3 -m py_compile server/build.py server/cerro.py
+          sh -n server/device/run-server.sh
+          shellcheck --shell=sh server/device/run-server.sh
+      - name: Exercise host tools
+        run: python3 -m unittest discover -s server/tests -v
+
+  build:
+    name: Android ARM64 CPU
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout kit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Read pinned versions
+        id: versions
+        run: python3 server/build.py --github-outputs
+      - name: Checkout pinned llama.cpp
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ steps.versions.outputs.llama_commit }}
+          path: .build/llama.cpp
+          persist-credentials: false
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          log-accepted-android-sdk-licenses: false
+      - name: Install pinned NDK
+        env:
+          NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+        run: sdkmanager "ndk;${NDK_VERSION}"
+      - name: Build and inspect Android executables
+        env:
+          NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+        run: |
+          python3 server/build.py \
+            --source .build/llama.cpp \
+            --ndk "${ANDROID_HOME}/ndk/${NDK_VERSION}" \
+            --jobs 2
+      - name: Verify the produced kit with the installer
+        run: python3 server/cerro.py verify --bundle dist/cerro-server
+      - name: Upload Android kit
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: cerro-server-android-arm64-cpu
+          path: |
+            dist/cerro-server-android-arm64-cpu.tar.gz
+            dist/cerro-server-android-arm64-cpu.tar.gz.sha256
+            dist/build-report.json
+            dist/elf-report.txt
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
