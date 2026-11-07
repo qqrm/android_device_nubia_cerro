@@ -34,18 +34,21 @@ jobs:
         env:
           PHONE_HOST: ${{ vars.PHONE_HOST }}
           PHONE_USER: ${{ vars.PHONE_USER }}
-          TS_CLIENT_ID: ${{ vars.TS_CLIENT_ID }}
-          TS_AUDIENCE: ${{ vars.TS_AUDIENCE }}
+          PHONE_PORT: ${{ vars.PHONE_PORT || '8022' }}
           PHONE_SSH_KEY: ${{ secrets.PHONE_SSH_KEY }}
           PHONE_KNOWN_HOSTS: ${{ secrets.PHONE_KNOWN_HOSTS }}
         run: |
           missing=0
-          for name in PHONE_HOST PHONE_USER TS_CLIENT_ID TS_AUDIENCE PHONE_SSH_KEY PHONE_KNOWN_HOSTS; do
+          for name in PHONE_HOST PHONE_USER PHONE_SSH_KEY PHONE_KNOWN_HOSTS; do
             if [[ -z "${!name}" ]]; then
               echo "::error::Missing phone environment setting: ${name}. See server/termux/DEPLOY.md."
               missing=1
             fi
           done
+          if [[ ! "$PHONE_PORT" =~ ^[0-9]{1,5}$ ]] || (( 10#$PHONE_PORT < 1 || 10#$PHONE_PORT > 65535 )); then
+            echo '::error::PHONE_PORT must be an integer between 1 and 65535.'
+            missing=1
+          fi
           exit "$missing"
 
   build:
@@ -55,7 +58,7 @@ jobs:
     uses: ./.github/workflows/server-kit.yml
     permissions:
       contents: read
-    # No phone credentials or OIDC permission are passed to the build.
+    # No phone credentials are passed to the hosted build.
 
   phone:
     name: Connect and operate phone
@@ -63,17 +66,25 @@ jobs:
     if: >-
       always() && !cancelled() && needs.settings.result == 'success' &&
       (inputs.operation != 'deploy' || needs.build.result == 'success')
-    runs-on: ubuntu-24.04
+    # Only this manually dispatched job uses the runner next to the phone.
+    # PR validation and compilation stay on GitHub-hosted machines.
+    runs-on: [self-hosted, linux, cerro-phone]
     timeout-minutes: 15
     environment: phone
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Checkout trusted phone tools
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+
+      - name: Check local runner tools
+        run: |
+          for tool in python3 ssh ssh-keygen sha256sum tar; do
+            command -v "$tool" > /dev/null
+          done
+          python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))'
 
       - name: Download this run's Android kit
         if: inputs.operation == 'deploy'
@@ -98,38 +109,33 @@ jobs:
               raise SystemExit('Bundle commit does not match this workflow run')
           PY
 
+      - name: Create temporary SSH directory
+        run: |
+          umask 077
+          ssh_dir=$(mktemp -d "${RUNNER_TEMP}/cerro-ssh.XXXXXXXX")
+          printf 'CERRO_SSH_DIR=%s\n' "$ssh_dir" >> "$GITHUB_ENV"
+
       - name: Prepare pinned SSH identity
         env:
           PHONE_SSH_KEY: ${{ secrets.PHONE_SSH_KEY }}
           PHONE_KNOWN_HOSTS: ${{ secrets.PHONE_KNOWN_HOSTS }}
         run: |
           umask 077
-          mkdir -p "${RUNNER_TEMP}/cerro-ssh"
-          printf '%s\n' "$PHONE_SSH_KEY" > "${RUNNER_TEMP}/cerro-ssh/key"
-          printf '%s\n' "$PHONE_KNOWN_HOSTS" > "${RUNNER_TEMP}/cerro-ssh/known_hosts"
-          ssh-keygen -y -P '' -f "${RUNNER_TEMP}/cerro-ssh/key" > /dev/null
-          ssh-keygen -F cerro-phone -f "${RUNNER_TEMP}/cerro-ssh/known_hosts" > /dev/null
-
-      - name: Join private phone network
-        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
-        with:
-          oauth-client-id: ${{ vars.TS_CLIENT_ID }}
-          audience: ${{ vars.TS_AUDIENCE }}
-          tags: tag:cerro-ci
-          version: 1.104.4
-          use-cache: 'false'
-          log-mode: quiet
-          ping: ${{ vars.PHONE_HOST }}
+          printf '%s\n' "$PHONE_SSH_KEY" > "${CERRO_SSH_DIR}/key"
+          printf '%s\n' "$PHONE_KNOWN_HOSTS" > "${CERRO_SSH_DIR}/known_hosts"
+          ssh-keygen -y -P '' -f "${CERRO_SSH_DIR}/key" > /dev/null
+          ssh-keygen -F cerro-phone -f "${CERRO_SSH_DIR}/known_hosts" > /dev/null
 
       - name: Run selected operation
         env:
           PHONE_HOST: ${{ vars.PHONE_HOST }}
           PHONE_USER: ${{ vars.PHONE_USER }}
+          PHONE_PORT: ${{ vars.PHONE_PORT || '8022' }}
           OPERATION: ${{ inputs.operation }}
         run: |
-          args=(--host "$PHONE_HOST" --user "$PHONE_USER" --port 8022
-                --ssh-key "${RUNNER_TEMP}/cerro-ssh/key"
-                --known-hosts "${RUNNER_TEMP}/cerro-ssh/known_hosts")
+          args=(--host "$PHONE_HOST" --user "$PHONE_USER" --port "$PHONE_PORT"
+                --ssh-key "${CERRO_SSH_DIR}/key"
+                --known-hosts "${CERRO_SSH_DIR}/known_hosts")
           case "$OPERATION" in
             deploy)
               python3 server/phone.py "${args[@]}" deploy --bundle dist/unpacked/cerro-server
@@ -143,4 +149,7 @@ jobs:
 
       - name: Remove temporary SSH credentials
         if: always()
-        run: rm -rf -- "${RUNNER_TEMP}/cerro-ssh"
+        run: |
+          if [[ -n "${CERRO_SSH_DIR:-}" ]]; then
+            rm -rf -- "$CERRO_SSH_DIR"
+          fi

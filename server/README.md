@@ -4,8 +4,10 @@
 Используется существующий Android с его драйверами, Wi-Fi, зарядкой и терморегулированием.
 Это исходный вариант для замеров на CPU; Adreno/NPU пока не проверены. Веб-интерфейс отключён.
 
-Для управления телефоном из GitHub Actions через домашний NAT используй
-[Termux + Tailscale deployment](termux/DEPLOY.md). Ниже — прежний самостоятельный путь через ADB.
+Для управления телефоном из GitHub Actions используй
+[SSH deployment через домашний runner](termux/DEPLOY.md).
+[Прямой SSH по USB или домашней сети](termux/CONSOLE.md) работает и без runner.
+Ниже — самостоятельный путь через ADB.
 
 ## 1. Собрать в GitHub Actions
 

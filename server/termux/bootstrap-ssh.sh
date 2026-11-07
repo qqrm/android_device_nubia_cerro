@@ -166,7 +166,7 @@ printf 'PHONE_USER=%s\n' "$user_name"
 printf '%s\n' 'PHONE_KNOWN_HOSTS (copy this public line from this trusted terminal):'
 printf 'cerro-phone %s\n' "$host_public"
 printf '%s\n' 'Install Termux:Boot from the same source as Termux and open it once for SSH startup after reboot.'
-printf '%s\n' 'Connect the Android Tailscale app separately; use its phone IP/name as PHONE_HOST.'
+printf '%s\n' 'Connect over the home LAN, or forward a local USB port to 8022 with adb; see CONSOLE.md.'
 printf '%s\n' 'The boot helper starts SSH only. Model-server startup is a separate deployment action.'
 if [ -f "$state/keep-awake" ]; then
     printf '%s\n' 'Wake lock is enabled. To disable: remove ~/.ssh/cerro-sshd/keep-awake and run termux-wake-unlock.'
