@@ -34,9 +34,10 @@ jobs:
       - name: Validate Python and device shell
         run: |
           python3 -m py_compile server/build.py server/cerro.py server/phone.py
-          sh -n server/device/run-server.sh
-          sh -n server/termux/bootstrap-ssh.sh
-          shellcheck --shell=sh server/device/run-server.sh server/termux/bootstrap-ssh.sh
+          for script in server/device/*.sh server/termux/*.sh; do
+            sh -n "$script"
+          done
+          shellcheck --shell=sh server/device/*.sh server/termux/*.sh
       - name: Exercise host tools
         run: python3 -m unittest discover -s server/tests -v
 
