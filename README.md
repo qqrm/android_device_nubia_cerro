@@ -11,8 +11,8 @@ GitHub Actions собирает `llama-server` и `llama-bench` под Android a
 
 - [Сборка и запуск серверного набора](server/README.md).
 - [SSH и отдельная установка в Termux](server/termux/README.md).
-- [Консольный Tailscale без Android VPN-приложения](server/termux/CONSOLE.md).
-- [Доступ и deployment из GitHub Actions через домашний NAT](server/termux/DEPLOY.md).
+- [Прямой SSH по USB или домашней сети](server/termux/CONSOLE.md).
+- [Deployment из GitHub Actions через домашний runner](server/termux/DEPLOY.md).
 - [Задание локальному агенту для настройки телефона](server/termux/LOCAL_AGENT.md).
 - [GitHub Actions](https://github.com/qqrm/android_device_nubia_cerro/actions/workflows/server-kit.yml): `Build minimal Android server`.
 - [Управление телефоном](https://github.com/qqrm/android_device_nubia_cerro/actions/workflows/deploy-phone.yml): `Deploy to Cerro phone`.

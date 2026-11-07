@@ -373,7 +373,7 @@ class Ssh:
             detail = next((line[7:] for line in lines if line.startswith("Error: ")), "")
             if detail:
                 raise cerro.KitError(detail[:1000])
-            raise cerro.KitError("SSH connection/command failed; check VPN reachability, pinned host key, deployment key and Termux Python.")
+            raise cerro.KitError("SSH connection/command failed; check the LAN or USB-forwarded endpoint, pinned host key, deployment key and Termux Python.")
         output = result.stdout.decode("utf-8", errors="replace").strip()
         if output:
             print(output)
@@ -405,7 +405,7 @@ def payload_archive(bundle: Path) -> bytes:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", required=True, help="phone Tailscale IP or MagicDNS name")
+    parser.add_argument("--host", required=True, help="reachable phone IP/DNS name, or 127.0.0.1 for USB forwarding")
     parser.add_argument("--user", required=True, help="Termux username printed by whoami")
     parser.add_argument("--port", type=cerro.port, default=8022)
     parser.add_argument("--ssh-key", type=Path, required=True)
