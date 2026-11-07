@@ -5,9 +5,11 @@
 ветка **server-lite**. Схема уже реализована в `.github/workflows/deploy-phone.yml`:
 GitHub Actions → Tailscale → обычный OpenSSH в Termux, порт **8022**.
 
-**Актуальное направление:** подготовить консольный доступ по [CONSOLE.md](CONSOLE.md),
-затем выполнить read-only `server/device/inventory.sh` для [минимального нативного
-продукта](../HEADLESS.md). Termux — этап подготовки, а конечные SSH/inference-службы
+**Актуальное направление:** выполнить read-only `server/device/inventory.sh` для
+[минимального нативного продукта](../HEADLESS.md) и подготовить консольный доступ
+по [CONSOLE.md](CONSOLE.md). Инвентаризация через USB не зависит от Tailscale и
+должна быть выполнена даже при незавершённой сетевой авторизации.
+Termux — этап подготовки, а конечные SSH/inference-службы
 должны запускаться без Android application framework. Если SSH-bootstrap уже прошёл,
 используй существующие ключи и сначала проверь SSH через USB forwarding.
 Не повторяй настройку браузерного входа Android-приложения Tailscale для консольного пути.
@@ -26,13 +28,21 @@ GitHub Actions → Tailscale → обычный OpenSSH в Termux, порт **80
    виден ли нужный телефон и есть ли авторизация GitHub с правом настроить его environment.
    При нескольких телефонах явно выбери NX721J. Не публикуй device serial.
 
-2. Проверь имеющуюся установку Termux и существующий SSH-bootstrap. Если Termux ещё нет,
+2. Передай `server/device/inventory.sh` в `/data/local/tmp/cerro-inventory.sh` через
+   авторизованный USB ADB и выполни `adb -s SERIAL shell sh /data/local/tmp/cerro-inventory.sh`.
+   Сохрани вывод в приватный локальный файл вне checkout. При ненулевом exit code
+   сохрани частичный отчёт и укажи недоступные разделы; не повышай права автоматически.
+   По `server/HEADLESS.md` составь перечень зависимостей Wi-Fi, charging/thermal,
+   power и storage для отдельного продукта без Zygote. На этой стадии ничего
+   не отключай; подготовь конкретный обратимый набор изменений для следующего шага.
+
+3. Проверь имеющуюся установку Termux и существующий SSH-bootstrap. Если Termux ещё нет,
    установи официальную версию; Termux:Boot должен иметь совместимый источник/подпись.
    Не настраивай Android VPN-приложение Tailscale: консольный вариант запускается после
    проверки SSH по USB. Не меняй сетевые настройки других устройств и не пробрасывай
    публичный порт на роутере.
 
-3. Используй существующие deployment-ключ, SSH host key и доверенный bootstrap-вывод.
+   Используй существующие deployment-ключ, SSH host key и доверенный bootstrap-вывод.
    Только если bootstrap ещё не выполнялся, создай отдельный Ed25519 deployment-ключ
    вне Git. Сохрани приватную часть локально с ограниченными правами; на телефон
    передай только `.pub`. В Termux установи `openssh python`, запусти
@@ -83,14 +93,6 @@ GitHub Actions → Tailscale → обычный OpenSSH в Termux, порт **80
    При разрешённом тесте отдельно проверь доступ до и после первой разблокировки.
    Автозапуск inference добавляй после успешного ручного deployment штатным launcher
    из `DEPLOY.md`, не создавай второй неуправляемый процесс `llama-server`.
-
-9. Передай `server/device/inventory.sh` в `/data/local/tmp/cerro-inventory.sh` через
-   авторизованный USB ADB и выполни `adb -s SERIAL shell sh /data/local/tmp/cerro-inventory.sh`.
-   Сохрани вывод в приватный локальный файл вне checkout. При ненулевом exit code
-   сохрани частичный отчёт и укажи недоступные разделы; не повышай права автоматически.
-   По `server/HEADLESS.md` составь перечень зависимостей Wi-Fi, charging/thermal,
-   power и storage для отдельного продукта без Zygote. На этой стадии ничего
-   не отключай; подготовь конкретный обратимый набор изменений для следующего шага.
 
 ## Границы работы и результат
 
