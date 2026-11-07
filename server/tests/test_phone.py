@@ -51,7 +51,7 @@ class TransportTests(unittest.TestCase):
         self.temp.cleanup()
 
     def ssh(self, **overrides):
-        parameters = dict(host="100.64.10.20", user="u0_a123", key_file=self.key, known_hosts=self.pin)
+        parameters = dict(host="192.0.2.20", user="u0_a123", key_file=self.key, known_hosts=self.pin)
         parameters.update(overrides)
         return phone.Ssh(**parameters)
 
@@ -99,13 +99,13 @@ class TransportTests(unittest.TestCase):
             self.ssh(known_hosts=link)
 
     def test_remote_diagnostics_do_not_expose_endpoint_or_raw_output(self):
-        response = subprocess.CompletedProcess([], 255, KEY.encode(), b"u0_a123@100.64.10.20: Permission denied\n")
+        response = subprocess.CompletedProcess([], 255, KEY.encode(), b"u0_a123@192.0.2.20: Permission denied\n")
         with mock.patch.object(phone.subprocess, "run", return_value=response), contextlib.redirect_stdout(io.StringIO()) as output:
             with self.assertRaises(phone.cerro.KitError) as error:
                 self.ssh().run("check")
         self.assertEqual(output.getvalue(), "")
         self.assertNotIn(KEY, str(error.exception))
-        self.assertNotIn("100.64.10.20", str(error.exception))
+        self.assertNotIn("192.0.2.20", str(error.exception))
         self.assertNotIn("u0_a123", str(error.exception))
 
     def test_corrupt_bundle_fails_before_any_ssh_command(self):

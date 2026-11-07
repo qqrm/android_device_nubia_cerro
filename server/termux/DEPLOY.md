@@ -1,14 +1,11 @@
-# Доступ к домашнему телефону из GitHub Actions
+# Управление телефоном по SSH и из GitHub Actions
 
-Для актуального консольного пути используй [CONSOLE.md](CONSOLE.md): там Tailscale
-работает обычным daemon в Termux без Android VPN-приложения. Настройки GitHub/OIDC
-из разделов 2–4 ниже общие для обоих вариантов.
+Обычный OpenSSH в Termux слушает порт **8022**. Локальный агент управляет телефоном
+по домашней сети или [USB forwarding](CONSOLE.md). Для кнопки в GitHub Actions
+телефонный job выполняет **домашний Linux runner**; сборка остаётся на GitHub-hosted
+runner. Внешний сервер, VPN и проброс публичного SSH-порта для этой схемы не нужны.
 
-Телефон подключается к Tailscale и запускает обычный OpenSSH в Termux на порту **8022**.
-Workflow временно подключает GitHub runner к той же сети. Проброс порта на роутере,
-публичный SSH и отдельный сервис очереди команд не нужны.
-
-Это настройка поверх текущего Android. Сборка прошивки, root и разблокировка загрузчика не требуются.
+Это настройка поверх текущего Android, без прошивки, root или изменений загрузчика.
 Для локального агента есть [задание с критериями готовности](LOCAL_AGENT.md).
 
 ## Что умеет workflow
@@ -22,27 +19,28 @@ Workflow временно подключает GitHub runner к той же се
 | `deploy` | Собирает Android kit, проверяет artifact текущего run, обновляет код и проверяет авторизованный inference. |
 | `start` | Запускает установленный сервер и проверяет его готовность. |
 | `stop` | Останавливает отслеживаемый процесс сервера. SSH продолжает работать. |
-| `status` | Проверяет состояние процесса. Отсутствующий или остановленный сервер даёт ошибку проверки. |
+| `status` | Проверяет процесс; отсутствующий или остановленный сервер даёт ненулевой exit code. |
 
-`deploy` требует заранее положить модель в `~/cerro-server/models/model.gguf`.
-Модель и API-ключ при обновлении сохраняются; отсутствующий API-ключ создаётся на телефоне.
-API слушает `127.0.0.1:8080`. Ключ не передаётся в runner: HTTP-проверка выполняется на телефоне.
-При неудачном запуске helper пытается вернуть предыдущий код и прежнее состояние процесса.
-Откат не заменяет резервную копию: отключение питания или принудительное завершение во время
-замены файлов может потребовать локального восстановления.
+`deploy` требует модель в `~/cerro-server/models/model.gguf`. Модель и API-ключ
+сохраняются; отсутствующий API-ключ создаётся на телефоне. API слушает
+`127.0.0.1:8080`, HTTP-проверка выполняется на телефоне, ключ в runner не передаётся.
+При ошибке helper пытается восстановить предыдущий код и состояние процесса;
+отключение питания во время замены файлов может потребовать локального восстановления.
 
-Запуски PR и обычные сборки к телефону не подключаются. `deploy` собирает тот же commit,
-из которого запущен workflow; произвольный artifact другого run не принимается.
-Новый запуск не отменяет уже идущее обновление. Сборочный job не получает SSH-ключ или OIDC.
+Обычные сборки и PR к телефону не подключаются. `deploy` использует artifact
+того же run и commit; новый запуск не отменяет уже идущее обновление.
+Сборочный job не получает SSH-ключи.
 
 ## 1. Один раз подготовить телефон
 
+Если bootstrap уже прошёл, используй существующие ключи и сразу проверь SSH
+по [CONSOLE.md](CONSOLE.md). Повторно создавать ключи не нужно.
+
 1. Установи [Termux из официального источника](https://github.com/termux/termux-app#installation)
-   и [Tailscale для Android](https://tailscale.com/docs/install/android). Открой оба приложения.
-   В Tailscale войди в свою сеть и запиши адрес телефона `100.x.y.z`.
-2. На доверенном компьютере создай отдельный **Ed25519** ключ для этого deployment.
-   Сохрани его вне checkout репозитория. Приватный ключ без парольной фразы понадобится
-   GitHub Actions; публичный файл `.pub` — телефону. Пример в Bash:
+   и открой его.
+2. На доверенном компьютере создай отдельный Ed25519 ключ без парольной фразы
+   для автоматического deployment. Храни его вне checkout с ограниченными правами.
+   Пример для Bash:
 
    ```sh
    mkdir -p ~/.config/cerro-deploy
@@ -50,8 +48,8 @@ API слушает `127.0.0.1:8080`. Ключ не передаётся в runne
    ssh-keygen -t ed25519 -N '' -C cerro-actions -f ~/.config/cerro-deploy/id_ed25519
    ```
 
-3. Перенеси на телефон **только публичный ключ** и скрипт `bootstrap-ssh.sh` из этого
-   checkout. Выполни в терминале Termux, подставив реальные пути:
+3. Передай на телефон **только `.pub`** и `bootstrap-ssh.sh` из этого checkout.
+   В терминале Termux, подставив реальные пути, выполни:
 
    ```sh
    pkg update
@@ -59,96 +57,80 @@ API слушает `127.0.0.1:8080`. Ключ не передаётся в runne
    sh /path/to/bootstrap-ssh.sh /path/to/id_ed25519.pub --wake-lock
    ```
 
-   Скрипт создаёт отдельную конфигурацию в `~/.ssh/cerro-sshd`, каталоги
-   `~/cerro-server/models` и `~/cerro-server/config`, включает вход только по ключу,
-   проверяет конфигурацию и запускает SSH. Существующие глобальные настройки OpenSSH
-   и `~/.ssh/authorized_keys` сохраняются. Если порт 8022 занят другим SSH-сервером,
-   сначала разберись, какой процесс его занимает; скрипт его не убивает.
+   Bootstrap создаёт отдельную конфигурацию `~/.ssh/cerro-sshd`, каталоги сервера
+   и SSH с входом только по ключу. Глобальная конфигурация и `~/.ssh/authorized_keys`
+   сохраняются. Если порт 8022 занят, сначала выясни, какой сервис его использует.
 
-4. Сохрани имя пользователя Termux и строку вида `cerro-phone ssh-ed25519 AAAA...`,
-   которые напечатает скрипт. Это доверенная привязка ключа сервера: получай её из
-   терминала телефона или уже авторизованного подключения. Не заменяй эту проверку
-   слепым `ssh-keyscan` или `StrictHostKeyChecking=no`.
+4. Сохрани username и строку `cerro-phone ssh-ed25519 ...` из доверенного вывода
+   bootstrap; строку запиши в локальный `known_hosts`. Слепой `ssh-keyscan`
+   и `StrictHostKeyChecking=no` не заменяют этот host pin.
+5. Проверь SSH через USB или LAN. Для автозапуска SSH установи
+   [Termux:Boot](https://github.com/termux/termux-boot#how-to-use) из того же источника,
+   что Termux, и открой его один раз. Bootstrap создаёт `~/.termux/boot/20-cerro-sshd`.
+   Разреши фоновую работу Termux в настройках батареи.
 
-5. Для автозапуска SSH установи [Termux:Boot](https://github.com/termux/termux-boot#how-to-use)
-   **из того же источника, что Termux**, и один раз открой его. Bootstrap уже создаёт
-   собственный файл `~/.termux/boot/20-cerro-sshd`. Разреши фоновую работу Termux и Tailscale
-   в настройках батареи, при необходимости включи Always-on VPN для Tailscale.
-   Не переключай VPN, если это нарушит используемое на телефоне подключение.
+`--wake-lock` действует и при запуске boot helper. Для отключения удали
+`~/.ssh/cerro-sshd/keep-awake` и выполни `termux-wake-unlock` в Termux.
+Доступность с выключенным экраном и после согласованного reboot проверяется отдельно;
+сам workflow телефон не перезагружает.
 
-`--wake-lock` включает wake lock для Termux и его boot helper. Его можно снять командой
-`termux-wake-unlock`. Это не гарантия доступности: Android/прошивка могут ограничивать
-процессы и сеть. Проверка с погашенным экраном и после reboot обязательна для заявления
-о постоянной работе. Сам workflow телефон не перезагружает.
+## 2. Подготовить домашний runner для кнопки в GitHub
 
-## 2. Разрешить CI доступ к одному SSH-порту
+Для локального `phone.py` этот шаг не нужен. GitHub-hosted runner не видит домашний
+LAN или USB компьютера, поэтому телефонный job требует метки
+`[self-hosted, linux, cerro-phone]`.
 
-В политике Tailscale добавь тег `tag:cerro-ci`, alias телефона и grant.
-Ниже **фрагмент для объединения с существующей политикой**, а не замена всех её правил:
+На доступном телефону Linux-компьютере нужны Bash, Git, Python 3.10+, OpenSSH,
+`tar`, `sha256sum` и актуальный GitHub Actions runner. Зарегистрируй его по
+[инструкции GitHub](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners)
+в **Settings → Actions → Runners**, добавив собственную метку `cerro-phone`.
+Регистрационный токен передавай только процедуре регистрации.
 
-```json
-{
-  "tagOwners": { "tag:cerro-ci": [] },
-  "hosts": { "cerro-phone": "100.x.y.z" },
-  "grants": [
-    { "src": ["tag:cerro-ci"], "dst": ["cerro-phone"], "ip": ["tcp:8022"] }
-  ]
-}
-```
+До запуска workflow выполни `phone.py check` под пользователем runner и из его
+среды. На Windows локальный `phone.py` работает непосредственно; для Linux runner
+в WSL отдельно проверь LAN/USB-маршрут. `127.0.0.1:18022` годится, только если
+forward доступен в той же среде, где запускается job. Не считай Windows localhost
+и WSL localhost взаимозаменяемыми.
 
-Подставь действительный Tailscale IP телефона. Grants разрешают доступ суммарно:
-если уже есть широкое правило `* -> *`, узкий grant не ограничит его.
-Проверь и сузь правила, которые дают CI лишний доступ, сохранив нужный доступ остальных устройств.
-Серверную функцию **Tailscale SSH** здесь не включаем: Android использует OpenSSH из Termux.
+Репозиторий публичный: выдели runner изолированную среду без других личных ключей.
+В **Settings → Actions → General** потребуй approval для всех outside collaborators
+и проверяй изменения workflow перед разрешением внешнего run. Домашний runner
+предназначен для ручного workflow из доверенной `server-lite`; PR jobs оставь hosted.
+Метка и environment `phone` не защищают runner от другого workflow, который может
+выбрать его без этого environment. GitHub описывает риск self-hosted runners
+в публичных репозиториях в инструкции выше.
 
-В Tailscale **Trust credentials → Credential → OpenID Connect** создай federated identity:
+Убедись, что runner online и слушает задания. Без него телефонный job останется
+в очереди; успешная hosted-сборка не означает, что телефон подключён.
 
-| Поле | Значение |
-| --- | --- |
-| Issuer | `https://token.actions.githubusercontent.com` |
-| Subject | `repo:qqrm@4681325/android_device_nubia_cerro@1448650588:environment:phone` |
-| Custom claim `repository_id` | `1448650588` |
-| Custom claim `ref` | `refs/heads/server-lite` |
-| Custom claim `workflow_ref` | `qqrm/android_device_nubia_cerro/.github/workflows/deploy-phone.yml@refs/heads/server-lite` |
-| Custom claim `event_name` | `workflow_dispatch` |
-| Scope | Только **Auth Keys → Write** (`auth_keys`) |
-| Tag | `tag:cerro-ci` |
+## 3. Настроить GitHub environment
 
-Subject выше — ожидаемый стандартный формат с immutable IDs для этого нового репозитория.
-Если его OIDC-шаблон менялся, сначала проверь фактический subject; JWT и временные credentials
-не нужно печатать в лог. Не расширяй доверие до всех репозиториев или всех веток для обхода ошибки.
-Скопируй **Client ID** и **Audience**, выданные Tailscale. Постоянный Tailscale auth key
-в GitHub для этой схемы не нужен.
-
-## 3. Один раз настроить GitHub environment
-
-В **Settings → Environments** создай environment **phone**. Для deployment branches выбери
+В **Settings → Environments** создай **phone**. Для deployment branches выбери
 **Selected branches and tags** и разреши только branch **server-lite**.
 
-| Где | Имя | Что записать |
+| Где | Имя | Значение |
 | --- | --- | --- |
-| Environment variable | `PHONE_HOST` | Tailscale IP телефона или его MagicDNS-имя |
-| Environment variable | `PHONE_USER` | Имя пользователя, выданное bootstrap |
-| Environment variable | `TS_CLIENT_ID` | Client ID federated identity |
-| Environment variable | `TS_AUDIENCE` | Audience той же identity |
-| Environment secret | `PHONE_SSH_KEY` | Полный приватный Ed25519 ключ deployment |
+| Environment variable | `PHONE_HOST` | Локальный IP/DNS телефона; `127.0.0.1` при USB forwarding в среде runner |
+| Environment variable | `PHONE_USER` | Username от bootstrap |
+| Environment variable | `PHONE_PORT` | Необязательно: по умолчанию `8022`, для приведённого USB forward — `18022` |
+| Environment secret | `PHONE_SSH_KEY` | Приватный Ed25519 deployment-ключ |
 | Environment secret | `PHONE_KNOWN_HOSTS` | Строка `cerro-phone ssh-ed25519 ...` от bootstrap |
 
-С локальной авторизацией `gh` секреты можно загрузить прямо из файлов:
+С локально авторизованным `gh` в Bash загрузи секреты напрямую из файлов:
 
 ```sh
 gh secret set PHONE_SSH_KEY --env phone --repo qqrm/android_device_nubia_cerro < ~/.config/cerro-deploy/id_ed25519
 gh secret set PHONE_KNOWN_HOSTS --env phone --repo qqrm/android_device_nubia_cerro < ~/.config/cerro-deploy/known_hosts
+gh workflow run deploy-phone.yml --ref server-lite --repo qqrm/android_device_nubia_cerro -f operation=check
 ```
 
-Ключи, device IP и файлы с credentials в Git не добавлять.
-Запусти `check`: успешный run подтверждает маршрут GitHub → телефон и SSH-аутентификацию.
-Наличие YAML в репозитории само по себе этого не подтверждает.
+Ключи, device IP и файлы с credentials в Git не добавляй. Дождись результата именно
+созданного run: успешный `check` подтверждает SSH из runner к телефону.
 
 ## 4. Первый deployment
 
-После успешного `check` скопируй выбранную локальную GGUF-модель один раз в
-`~/cerro-server/models/model.gguf`. Например, с компьютера, который также подключён к Tailscale:
+После `check` скопируй уже выбранную локальную GGUF-модель в
+`~/cerro-server/models/model.gguf`. Пример для LAN из Bash:
 
 ```sh
 scp -P 8022 -i ~/.config/cerro-deploy/id_ed25519 \
@@ -158,38 +140,28 @@ scp -P 8022 -i ~/.config/cerro-deploy/id_ed25519 \
   /path/to/model.gguf USER@PHONE_HOST:cerro-server/models/model.gguf
 ```
 
-Замени `USER` и `PHONE_HOST`; не перезаписывай модель работающего сервера.
-При переносе с ADB-варианта сначала останови его через `python cerro.py stop`, чтобы
-освободить порт 8080. Если сервер ранее запускался вручную в Termux, останови именно тот
-процесс (например, `Ctrl+C` в его терминале). Старый `~/.termux/boot/10-cerro` из ручной
-инструкции тоже может запускать второй SSH/сервер: после проверки его содержимого
-сохрани копию вне boot-каталога и отключи этот прежний способ запуска.
-Далее запусти workflow с операцией `deploy`.
-Он проверит архив, архитектуру и checksums, обновит код, проверит `/health`, отказ запроса
-без API-ключа и непустой ответ авторизованного inference-запроса.
+Подставь `USER` и `PHONE_HOST`; для USB замени host на `127.0.0.1`, порт на `18022`.
+Не перезаписывай модель работающего сервера. При переносе с ADB сначала останови
+прежний сервер через `python cerro.py stop`. Ручной процесс Termux останови в его
+терминале. Если старый `~/.termux/boot/10-cerro` запускает второй сервер, проверь
+содержимое, сохрани копию вне boot-каталога и отключи именно этот прежний запуск.
 
-SSH можно использовать и напрямую через `ssh -T` с теми же `-i`, `HostKeyAlias`, `UserKnownHostsFile`
-и `StrictHostKeyChecking=yes`. Для доступа к API добавь
-`-N -L 127.0.0.1:8081:127.0.0.1:8080`. SSH-ключ и API-ключ — разные credentials.
-Deployment-ключ допускает команды и SFTP; выделение PTY отключено.
-Для ручного API-запроса безопасно получи `~/cerro-server/config/api-key` по доверенному
-SSH/SFTP и сохрани локально с ограниченными правами.
+Запусти workflow `deploy`. Он проверит архив и checksums, обновит код, проверит
+`/health`, отказ без API-ключа и непустой ответ авторизованного inference-запроса.
+Без GitHub runner можно скачать и распаковать kit по [инструкции сборки](../README.md),
+затем выполнить локально `phone.py` с прежними SSH-параметрами и
+`deploy --bundle PATH_TO_CERRO_SERVER`.
 
-Автозапуск inference после reboot настраивается отдельно после успешного ручного deployment:
-boot helper должен вызывать
+Для прямого SSH используй `ssh -T` с теми же портом, ключом, `HostKeyAlias`,
+`UserKnownHostsFile` и `StrictHostKeyChecking=yes`. Для API добавь
+`-N -L 127.0.0.1:8081:127.0.0.1:8080`. Deployment-ключ допускает команды и SFTP;
+PTY отключён. API-ключ отличается от SSH-ключа: для ручного API-запроса получи
+`~/cerro-server/config/api-key` по доверенному SSH/SFTP и храни локально приватно.
+
+Автозапуск inference добавляй после успешного ручного deployment. Отдельный boot
+helper должен вызывать
 `CERRO_SERVER_DIR="$HOME/cerro-server" sh "$HOME/cerro-server/device/run-server.sh" start`.
-Это сохраняет проверку API-ключа, pidfile и блокировки из штатного launcher.
+Так сохраняются API authentication, pidfile и блокировки штатного launcher.
 
-## Проверенные источники
-
-- [Tailscale GitHub Action](https://tailscale.com/docs/integrations/github/github-action)
-  и [OIDC](https://tailscale.com/docs/features/workload-identity-federation).
-- [GitHub OIDC claims](https://docs.github.com/en/actions/reference/security/oidc).
-- [Tailscale grants](https://tailscale.com/docs/reference/syntax/grants)
-  и [платформы Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh).
-- [Android Always-on VPN](https://developer.android.com/develop/connectivity/vpn)
-  и [Doze](https://developer.android.com/training/monitoring-device-state/doze-standby).
-
-Сборочные проверки и проверки транспортного кода выполняются в CI. SSH на NX721J,
-реальный inference, работа с выключенным экраном и восстановление после reboot требуют
-отдельного аппаратного прогона; результаты такого прогона не следует подменять CI-тестами.
+CI проверяет сборку и транспортный код. Реальный SSH, inference, выключенный экран
+и восстановление после reboot требуют отдельного прогона на NX721J.
