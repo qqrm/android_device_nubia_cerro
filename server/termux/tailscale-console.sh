@@ -8,6 +8,10 @@ umask 077
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 usage() { fail 'Usage: sh tailscale-console.sh install | run | login AUTH_KEY_FILE | status'; }
+cleanup_install() {
+    if [ -n "$work" ]; then rm -rf "$work"; fi
+    rmdir "$storage/.install-lock" 2>/dev/null || true
+}
 [ "$#" -ge 1 ] || usage
 action=$1
 case $action in
@@ -16,13 +20,17 @@ case $action in
     *) usage ;;
 esac
 
-[ -n "${HOME:-}" ] && [ -n "${PREFIX:-}" ] || fail 'Run this script inside Termux.'
+if [ -z "${HOME:-}" ] || [ -z "${PREFIX:-}" ]; then
+    fail 'Run this script inside Termux.'
+fi
 case $HOME in /*) ;; *) fail 'Termux HOME must be absolute.' ;; esac
 case $PREFIX in /*) ;; *) fail 'Termux PREFIX must be absolute.' ;; esac
 case "$HOME:$PREFIX" in
     *[!A-Za-z0-9_./:-]*) fail 'Use ordinary Termux HOME and PREFIX paths without whitespace or shell metacharacters.' ;;
 esac
-[ -d "$HOME" ] && [ ! -L "$HOME" ] && [ -x "$PREFIX/bin/sh" ] || fail 'Run this script in a native Termux session.'
+if [ ! -d "$HOME" ] || [ -L "$HOME" ] || [ ! -x "$PREFIX/bin/sh" ]; then
+    fail 'Run this script in a native Termux session.'
+fi
 case $(uname -m) in aarch64|arm64) ;; *) fail 'This pinned release is for ARM64 phones only.' ;; esac
 
 version=1.104.4
@@ -62,11 +70,7 @@ if [ "$action" = install ]; then
     done
     mkdir "$storage/.install-lock" 2>/dev/null || fail 'Another install is active, or an interrupted install left .install-lock. Inspect it before removing the empty lock directory.'
     work=
-    cleanup() {
-        if [ -n "$work" ]; then rm -rf "$work"; fi
-        rmdir "$storage/.install-lock" 2>/dev/null || true
-    }
-    trap cleanup 0
+    trap cleanup_install 0
     trap 'exit 1' 1 2 15
     work=$(mktemp -d "$storage/.install.XXXXXXXX")
     curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
@@ -76,7 +80,9 @@ if [ "$action" = install ]; then
     # Extract only the two pinned executables, never the systemd service files.
     tar -xzf "$work/release.tgz" -C "$work" "$archive/tailscale" "$archive/tailscaled"
     for name in tailscale tailscaled; do
-        [ -f "$work/$archive/$name" ] && [ ! -L "$work/$archive/$name" ] || fail 'Unexpected binary in the verified archive.'
+        if [ ! -f "$work/$archive/$name" ] || [ -L "$work/$archive/$name" ]; then
+            fail 'Unexpected binary in the verified archive.'
+        fi
         chmod 700 "$work/$archive/$name"
     done
     chmod 700 "$work/$archive"
@@ -86,7 +92,9 @@ if [ "$action" = install ]; then
 fi
 
 for name in tailscale tailscaled; do
-    [ -f "$release/$name" ] && [ ! -L "$release/$name" ] && [ -x "$release/$name" ] || fail 'Run install first; the pinned executables are missing or not ordinary executable files.'
+    if [ ! -f "$release/$name" ] || [ -L "$release/$name" ] || [ ! -x "$release/$name" ]; then
+        fail 'Run install first; the pinned executables are missing or not ordinary executable files.'
+    fi
 done
 client=$release/tailscale
 
@@ -100,7 +108,9 @@ case $action in
     login)
         auth_key_file=$2
         case $auth_key_file in /*) ;; *) fail 'Supply an absolute path to a private auth-key file.' ;; esac
-        [ -f "$auth_key_file" ] && [ ! -L "$auth_key_file" ] && [ -r "$auth_key_file" ] || fail 'The auth-key path must be a readable regular file, not a symlink.'
+        if [ ! -f "$auth_key_file" ] || [ -L "$auth_key_file" ] || [ ! -r "$auth_key_file" ]; then
+            fail 'The auth-key path must be a readable regular file, not a symlink.'
+        fi
         [ "$(stat -c %u "$auth_key_file")" = "$(id -u)" ] || fail 'The auth-key file must belong to the current Termux user.'
         case $(stat -c %a "$auth_key_file") in 400|600) ;; *) fail 'Keep the auth-key file private: chmod 600 AUTH_KEY_FILE.' ;; esac
         # A failed auth response can be sensitive too. Do not print native output.

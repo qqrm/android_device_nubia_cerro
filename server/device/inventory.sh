@@ -48,7 +48,7 @@ printf '%s\n' 'format=cerro-inventory-v1'
 if capture timestamp date -u '+%Y-%m-%dT%H:%M:%SZ'; then
     printf 'utc=%s\n' "$output"
 fi
-if capture uptime awk '{print $1; exit}' /proc/uptime; then
+if capture uptime cut -d ' ' -f 1 /proc/uptime; then
     printf 'uptime_seconds=%s\n' "$output"
 fi
 printf '%s\n' 'visibility=current shell; permissions may hide processes or services'
