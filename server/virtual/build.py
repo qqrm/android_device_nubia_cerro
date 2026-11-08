@@ -6,6 +6,7 @@ image, install services, generate credentials, or deploy anything.
 """
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -42,11 +43,14 @@ def load_versions():
     if virtual["schema_version"] != 1 or virtual["abi"] != "x86_64":
         raise ValueError("Unsupported virtual native payload version or ABI")
     for name, repository in (("openssh", "openssh/openssh-portable"),
-                             ("openssl", "openssl/openssl")):
+                             ("openssl", "openssl/openssl"), ("ldns", "NLnetLabs/ldns")):
         if virtual[f"{name}_repository"] != repository:
             raise ValueError(f"Unexpected {name} repository")
         if not re.fullmatch(r"[0-9a-f]{40}", virtual[f"{name}_commit"]):
             raise ValueError(f"{name}_commit must be a complete commit SHA")
+    if not all(re.fullmatch(r"[0-9a-f]{64}", virtual["aosp_explicit_bzero"][key])
+               for key in ("before_sha256", "after_sha256")):
+        raise ValueError("Invalid AOSP compatibility source hashes")
     if (virtual["model_repository"] != "ggml-org/models"
             or virtual["model_file"] != "tinyllamas/stories260K.gguf"
             or not re.fullmatch(r"[0-9a-f]{40}", virtual["model_revision"])
@@ -71,6 +75,7 @@ def main():
     parser.add_argument("--llama-source", type=Path, default=ROOT / ".build/src/llama.cpp")
     parser.add_argument("--openssh-source", type=Path, default=ROOT / ".build/src/openssh")
     parser.add_argument("--openssl-source", type=Path, default=ROOT / ".build/src/openssl")
+    parser.add_argument("--ldns-source", type=Path, default=ROOT / ".build/src/ldns")
     parser.add_argument("--ndk", type=Path)
     parser.add_argument("--build-dir", type=Path, default=ROOT / ".build/virtual-native")
     parser.add_argument("--dist", type=Path, default=ROOT / "dist/virtual-native")
@@ -79,14 +84,14 @@ def main():
     versions = load_versions()
     if args.github_outputs:
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-            for key in ("llama_commit", "ndk_version", "openssh_commit", "openssl_commit"):
+            for key in ("llama_commit", "ndk_version", "openssh_commit", "openssl_commit", "ldns_commit"):
                 output.write(f"{key}={versions[key]}\n")
         return
     if args.ndk is None or not 1 <= args.jobs <= 16:
         parser.error("--ndk is required; --jobs must be between 1 and 16")
     sources = {"llama": args.llama_source.resolve(),
                "openssh": args.openssh_source.resolve(),
-               "openssl": args.openssl_source.resolve()}
+               "openssl": args.openssl_source.resolve(), "ldns": args.ldns_source.resolve()}
     for name, source in sources.items():
         verify_source(source, versions[f"{name}_commit"])
     ndk, build, dist = args.ndk.resolve(), args.build_dir.resolve(), args.dist.resolve()
@@ -127,10 +132,44 @@ def main():
     if not (openssl_install / "lib/libcrypto.a").is_file():
         raise ValueError("The static Android libcrypto archive was not installed")
 
+    # Bionic's public NDK resolver API does not expose the internal resolver
+    # state needed by OpenSSH's libc fallback. Use its supported ldns backend.
+    ldns_source, ldns_install = build / "ldns-source", build / "ldns-install"
+    shutil.copytree(sources["ldns"], ldns_source, ignore=shutil.ignore_patterns(".git"))
+    run("libtoolize", "-ci", cwd=ldns_source)
+    run("autoreconf", "-fi", cwd=ldns_source)
+    build_host = run("sh", ldns_source / "config.guess", capture=True).strip()
+    ldns_env = env.copy()
+    ldns_env.update(CC=str(compiler), AR=str(llvm / "llvm-ar"),
+                    RANLIB=str(llvm / "llvm-ranlib"), STRIP=str(llvm / "llvm-strip"),
+                    CFLAGS="-O2 -fPIC", CPPFLAGS=f"-I{openssl_install}/include",
+                    LDFLAGS=f"-L{openssl_install}/lib", LIBS="-ldl")
+    ldns_flags = [
+        f"--build={build_host}", "--host=x86_64-linux-android",
+        f"--prefix={ldns_install}", f"--libdir={ldns_install}/lib", f"--with-ssl={openssl_install}",
+        "--disable-shared", "--enable-static", "--with-pic", "--without-drill", "--without-examples",
+    ]
+    run(ldns_source / "configure", *ldns_flags, cwd=ldns_source, env=ldns_env)
+    run("make", f"-j{args.jobs}", cwd=ldns_source, env=ldns_env)
+    run("make", "install", cwd=ldns_source, env=ldns_env)
+    if not (ldns_install / "lib/libldns.a").is_file():
+        raise ValueError("The static Android ldns archive was not installed")
+
     # Autoreconf generates files in the source directory. Work on a copy so the
     # verified upstream checkout remains unchanged and attributable to its SHA.
     ssh_source, ssh_build = build / "openssh-source", build / "openssh"
     shutil.copytree(sources["openssh"], ssh_source, ignore=shutil.ignore_patterns(".git"))
+    # Exact one-line AOSP backport: retain upstream's volatile function-pointer
+    # erasure while selecting the actual Bionic inline function. Both full-file
+    # hashes must match, including the result from the pinned AOSP revision.
+    erase_source = ssh_source / "openbsd-compat/explicit_bzero.c"
+    erase_pin = versions["aosp_explicit_bzero"]
+    if COMMON.sha256(erase_source) != erase_pin["before_sha256"]:
+        raise ValueError("Unexpected OpenSSH explicit_bzero source before AOSP backport")
+    erase_result = erase_source.read_bytes().replace(b" = bzero;\n", b" = __bionic_bzero;\n")
+    if hashlib.sha256(erase_result).hexdigest() != erase_pin["after_sha256"]:
+        raise ValueError("AOSP explicit_bzero backport does not match its pinned source")
+    erase_source.write_bytes(erase_result)
     run("autoreconf", "-fi", cwd=ssh_source)
     ssh_build.mkdir()
     ssh_env = env.copy()
@@ -139,8 +178,9 @@ def main():
     # This is the same feature selection as AOSP OpenSSH commit 819a147a5358.
     ssh_env.update(CC=str(compiler), AR=str(llvm / "llvm-ar"),
                    RANLIB=str(llvm / "llvm-ranlib"), STRIP=str(llvm / "llvm-strip"),
-                   CFLAGS="-O2 -fPIE", CPPFLAGS="-DHAVE_ATTRIBUTE__SENTINEL__=1",
-                   LDFLAGS="-pie")
+                   CFLAGS="-O2 -fPIE",
+                   CPPFLAGS=f"-DHAVE_ATTRIBUTE__SENTINEL__=1 -I{openssl_install}/include",
+                   LDFLAGS=f"-pie -L{openssl_install}/lib", LIBS="-lssl -lcrypto -ldl")
     # Bionic exposes bzero as an inline macro. Autoconf's symbol-only check
     # misses it, causing OpenSSH's replacement to collide with <strings.h>.
     # Verify the header-provided call compiles and links before caching yes.
@@ -151,7 +191,6 @@ def main():
     run(compiler, "-O0", "-Werror", "-fno-builtin-bzero", bzero_probe,
         "-o", ssh_build / "bzero-probe", env=ssh_env)
     ssh_env["ac_cv_func_bzero"] = "yes"
-    build_host = run("sh", ssh_source / "config.guess", capture=True).strip()
     ssh_flags = [
         f"--build={build_host}", "--host=x86_64-linux-android",
         f"--prefix={GUEST_ROOT}", f"--bindir={GUEST_ROOT}/bin",
@@ -159,6 +198,7 @@ def main():
         f"--sysconfdir={GUEST_ROOT}/etc", f"--with-pid-dir={GUEST_ROOT}",
         "--with-privsep-user=shell", f"--with-privsep-path={GUEST_ROOT}/empty",
         "--with-default-path=/system/bin", f"--with-ssl-dir={openssl_install}",
+        f"--with-ldns={ldns_install}", f"--with-maildir={GUEST_ROOT}/mail",
         "--without-rpath", "--without-zlib", "--without-pam",
     ]
     # Keep upstream sandbox autodetection and privilege-separation behavior.
@@ -171,6 +211,8 @@ def main():
         raise ValueError("OpenSSH did not select its upstream Android configuration")
     if "#define HAVE_BZERO 1" not in config:
         raise ValueError("OpenSSH did not select the verified Bionic bzero implementation")
+    if "#define HAVE_LDNS 1" not in config:
+        raise ValueError("OpenSSH did not select its ldns resolver backend")
     run("make", f"-j{args.jobs}", *SSH_TOOLS, cwd=ssh_build, env=ssh_env)
 
     (package / "bin").mkdir(parents=True, exist_ok=False)
@@ -186,7 +228,7 @@ def main():
         dependencies[name] = needed
         target.chmod(0o755)
     notices = COMMON.copy_licenses(sources["llama"], ndk, package / "licenses/llama-and-ndk")
-    for name, license_file in (("openssh", "LICENCE"), ("openssl", "LICENSE.txt")):
+    for name, license_file in (("openssh", "LICENCE"), ("openssl", "LICENSE.txt"), ("ldns", "LICENSE")):
         destination = package / "licenses" / name
         destination.mkdir()
         shutil.copy2(sources[name] / license_file, destination / license_file)
@@ -200,7 +242,9 @@ def main():
         "backend": "cpu", "cpu_baseline": "Android NDK x86_64 ABI; optional ggml ISA disabled",
         "guest_root": GUEST_ROOT, "targets": list(binaries), "cmake_flags": llama_flags,
         "openssl_configure_flags": openssl_flags, "openssh_configure_flags": ssh_flags,
-        "openssh_build_environment": {key: ssh_env[key] for key in ("CC", "AR", "RANLIB", "CFLAGS", "CPPFLAGS", "LDFLAGS", "ac_cv_func_bzero")},
+        "ldns_configure_flags": ldns_flags,
+        "ldns_build_environment": {key: ldns_env[key] for key in ("CC", "AR", "RANLIB", "CFLAGS", "CPPFLAGS", "LDFLAGS", "LIBS")},
+        "openssh_build_environment": {key: ssh_env[key] for key in ("CC", "AR", "RANLIB", "CFLAGS", "CPPFLAGS", "LDFLAGS", "LIBS", "ac_cv_func_bzero")},
         "openssh_sandbox": "upstream autodetection; no override",
         "android_runtime_libraries": dependencies, "ndk_notices": notices,
         "validation": {"cross_compiled": True, "elf_verified": True,

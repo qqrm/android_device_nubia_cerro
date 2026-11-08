@@ -66,6 +66,13 @@ jobs:
           ref: ${{ steps.versions.outputs.openssl_commit }}
           path: .build/src/openssl
           persist-credentials: false
+      - name: Checkout pinned ldns
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: NLnetLabs/ldns
+          ref: ${{ steps.versions.outputs.ldns_commit }}
+          path: .build/src/ldns
+          persist-credentials: false
       - name: Set up Android SDK
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
@@ -75,7 +82,7 @@ jobs:
           NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends autoconf automake
+          sudo apt-get install -y --no-install-recommends autoconf automake libtool
           sdkmanager "ndk;${NDK_VERSION}"
       - name: Cross-build and verify native Android binaries
         env:

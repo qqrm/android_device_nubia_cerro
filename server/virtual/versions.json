@@ -9,6 +9,15 @@
   "openssl_version": "3.5.9",
   "openssl_tag": "openssl-3.5.9",
   "openssl_commit": "45e844fa2a14ec92d146bd8f5778ac130b6625fb",
+  "ldns_repository": "NLnetLabs/ldns",
+  "ldns_version": "1.9.2",
+  "ldns_tag": "1.9.2",
+  "ldns_commit": "06466f0a20dc298a9dd6f444c15fa568398fff3c",
+  "aosp_explicit_bzero": {
+    "source_url": "https://android.googlesource.com/platform/external/openssh/+/6e3b25e80c2b4a21ec3c545bde30b8ff45a25416/openbsd-compat/explicit_bzero.c",
+    "before_sha256": "2dc2c2a5c9f7fda3e69b3eb2c1b13ec18b6cc947d252f33d82c8cd691f947fec",
+    "after_sha256": "6326f8cb008c23fc35e2bac0e7eab6022380a8bb12db2fa78ea10d9699efe3ee"
+  },
   "model_repository": "ggml-org/models",
   "model_revision": "499bc8821c6b12b4e53c5bffcb21ec206f212d81",
   "model_file": "tinyllamas/stories260K.gguf",
