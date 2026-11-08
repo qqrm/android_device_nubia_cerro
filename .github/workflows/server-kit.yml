@@ -62,7 +62,7 @@ jobs:
           path: .build/llama.cpp
           persist-credentials: false
       - name: Set up Android SDK
-        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
         with:
           log-accepted-android-sdk-licenses: false
       - name: Install pinned NDK
