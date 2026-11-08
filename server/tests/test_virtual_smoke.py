@@ -1,11 +1,18 @@
-"""Local input/response guards only; these tests do not simulate Android execution."""
+"""Local guards and credential transport tests, not Android execution tests."""
 
 import hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
+import threading
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "virtual/smoke.py"
@@ -51,6 +58,132 @@ class RuntimeGuards(unittest.TestCase):
         for key, value in (("ro.product.device", "cerro"), ("ro.product.cpu.abi", "arm64-v8a")):
             with self.subTest(key=key), self.assertRaises(SMOKE.SmokeError):
                 SMOKE.validate_guest({**guest, "properties": {**guest["properties"], key: value}})
+
+
+class EphemeralAuthentication(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.smoke = SMOKE.Smoke(
+            SimpleNamespace(container="unit-controller", serial="127.0.0.1:6520"),
+            self.directory,
+        )
+
+    def test_real_curl_preserves_authentication_and_json_without_credential_files(self):
+        expected = self.smoke.api_key
+        observed = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.respond()
+
+            def do_POST(self):
+                self.respond()
+
+            def respond(self):
+                raw = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                observed.append((self.headers.get("Authorization"),
+                                 json.loads(raw) if raw else None))
+                self.send_response(200 if self.headers.get("Authorization") ==
+                                   "Bearer " + expected else 401)
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, *_args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        calls = []
+
+        def local_curl(*argv, **kwargs):
+            calls.append(argv)
+            return self.smoke.command("real local curl", argv, **kwargs)
+
+        body = {"prompt": 'quotes " and \\ slash\nnewline\tЮникод', "n_predict": 8}
+        try:
+            with patch.object(self.smoke, "docker", side_effect=local_curl), \
+                    patch.object(SMOKE, "HTTP_PORT", server.server_port):
+                for authorized, payload in ((True, body), (False, body), (True, None)):
+                    result = self.smoke.http("/completion", authorized=authorized, body=payload)
+                    self.assertEqual(result.returncode, 0)
+                    self.assertEqual(SMOKE.parse_http(result.stdout)[0],
+                                     200 if authorized else 401)
+                    self.assertEqual(observed[-1],
+                                     ("Bearer " + expected if authorized else None, payload))
+            self.assertTrue(all(expected not in " ".join(argv) for argv in calls),
+                            "An API key must not appear in curl process arguments")
+            self.assertEqual(list(self.directory.iterdir()), [])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_server_key_is_piped_to_child_environment_without_disk_or_argv_storage(self):
+        # A copied native sleep binary checks the actual shell/bootstrap and
+        # /proc identity behavior. The real llama.cpp/Android probe runs in CI.
+        probe = subprocess.Popen([shutil.which("sleep"), "10"],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL)
+        try:
+            try:
+                Path(f"/proc/{probe.pid}/exe").readlink()
+                with Path(f"/proc/{probe.pid}/environ").open("rb") as environment:
+                    environment.read(1)
+            except (FileNotFoundError, PermissionError):
+                if os.environ.get("GITHUB_ACTIONS") == "true":
+                    self.fail("Linux CI must expose its test child in /proc; this check cannot be skipped")
+                self.skipTest("This executor hides child /proc; required on Linux GitHub Actions")
+        finally:
+            probe.terminate()
+            probe.wait(timeout=3)
+        root = self.directory / "guest"
+        (root / "bin").mkdir(parents=True)
+        executable = root / "bin/llama-server"
+        shutil.copy2(shutil.which("sleep"), executable)
+        calls = []
+
+        def local_shell(script, **kwargs):
+            calls.append(script)
+            return self.smoke.command("real local shell", ["sh", "-c", script], **kwargs)
+
+        with patch.object(self.smoke, "shell", side_effect=local_shell), \
+                patch.object(SMOKE, "GUEST_ROOT", str(root)):
+            try:
+                self.smoke.start("llama-server", [str(executable), "30"], authenticated=True)
+                pid = self.smoke.processes["llama-server"][0]
+                environment = Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
+                key = next(item for item in environment if item.startswith(b"LLAMA_API_KEY="))
+                self.assertEqual(key, b"LLAMA_API_KEY=" + self.smoke.api_key.encode())
+                self.assertNotIn(self.smoke.api_key.encode(), Path(f"/proc/{pid}/cmdline").read_bytes())
+                self.assertTrue(all(self.smoke.api_key not in script for script in calls),
+                                "An API key must not appear in a shell command argument")
+                self.assertFalse((root / "api-key").exists())
+                self.assertNotIn(self.smoke.api_key, (root / "llama-server.log").read_text())
+            finally:
+                self.assertTrue(self.smoke.cleanup())
+
+    def test_empty_server_key_is_rejected_before_start(self):
+        self.smoke.api_key = ""
+
+        def local_shell(script, **kwargs):
+            return self.smoke.command("local shell", ["sh", "-c", script], **kwargs)
+
+        with patch.object(self.smoke, "shell", side_effect=local_shell):
+            with self.assertRaises(SMOKE.SmokeError):
+                self.smoke.start("llama-server", ["must-not-run"], authenticated=True)
+        self.assertEqual(self.smoke.processes, {})
+
+    def test_adb_stdin_uses_non_echoing_transport(self):
+        with patch.object(self.smoke, "command", return_value=subprocess.CompletedProcess([], 0)) as run:
+            self.smoke.shell("read -r key", input=self.smoke.api_key + "\n")
+        argv = run.call_args.args[1]
+        self.assertEqual(argv[:4], ["docker", "exec", "-i", "unit-controller"])
+        self.assertEqual(argv[-3:], ["shell", "-T", "read -r key"])
+        self.assertNotIn(self.smoke.api_key, " ".join(argv))
+        self.assertEqual(run.call_args.kwargs["input"], self.smoke.api_key + "\n")
 
 
 class BundleGuards(unittest.TestCase):

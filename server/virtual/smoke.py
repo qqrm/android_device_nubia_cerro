@@ -184,7 +184,9 @@ class Smoke:
         return self.docker(ADB, "-s", self.args.serial, *argv, **kwargs)
 
     def shell(self, script, **kwargs):
-        return self.adb("shell", script, **kwargs)
+        # Never allocate a terminal: stdin may carry a one-time credential and
+        # must not be echoed by the guest's terminal discipline.
+        return self.adb("shell", "-T", script, **kwargs)
 
     def inventory(self):
         properties = ("ro.product.device", "ro.product.cpu.abi", "ro.build.version.sdk",
@@ -223,8 +225,6 @@ class Smoke:
             shutil.copy2(self.temporary / name, client / name)
         host_public = " ".join((self.temporary / "host-key.pub").read_text().split()[:2])
         (client / "known_hosts").write_text(f"[127.0.0.1]:{SSH_PORT} {host_public}\n")
-        (client / "curl.conf").write_text(f'header = "Authorization: Bearer {self.api_key}"\n')
-        (guest / "api-key").write_text(self.api_key + "\n")
         (guest / "sshd_config").write_text("\n".join([
             "Port 2222", "ListenAddress 127.0.0.1", f"HostKey {GUEST_ROOT}/host-key",
             f"PidFile {GUEST_ROOT}/sshd.pid", "AllowUsers shell", "StrictModes yes",
@@ -248,19 +248,26 @@ class Smoke:
                    f"(umask 077; mkdir {root} && printf '%s' {self.token} > {root}/.owner)")
         self.guest_created = True
         self.adb("push", f"{self.controller}/guest/bin", f"{GUEST_ROOT}/bin", timeout=120)
-        for name in ("stories260K.gguf", "api-key", "sshd_config", "ca.pub", "host-key"):
+        for name in ("stories260K.gguf", "sshd_config", "ca.pub", "host-key"):
             self.adb("push", f"{self.controller}/guest/{name}", f"{GUEST_ROOT}/{name}", timeout=120)
         self.shell(f"chmod 700 {root} {root}/bin && chmod 755 {root}/bin/* && "
-                   f"chmod 600 {root}/api-key {root}/host-key {root}/sshd_config {root}/ca.pub")
+                   f"chmod 600 {root}/host-key {root}/sshd_config {root}/ca.pub")
         self.docker("rm", "-rf", f"{self.controller}/guest")
         self.report["model"] = {key: pins[key] for key in pins if key.startswith("model_")}
         (self.args.output_dir / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
 
-    def start(self, name, argv):
+    def start(self, name, argv, *, authenticated=False):
         executable = f"{GUEST_ROOT}/bin/{name}"
-        script = f"""
+        # The pinned llama.cpp supports LLAMA_API_KEY. Read it from the ADB
+        # stdin pipe, never a file or command-line argument; only the server
+        # child inherits it. SSH's temporary key files remain separate.
+        setup = ("IFS= read -r LLAMA_API_KEY || exit 1\n"
+                 '[ -n "$LLAMA_API_KEY" ] || exit 1\n'
+                 "export LLAMA_API_KEY\n") if authenticated else ""
+        script = setup + f"""
 nohup {shlex.join(argv)} > {GUEST_ROOT}/{name}.log 2>&1 < /dev/null &
 pid=$!
+unset LLAMA_API_KEY
 attempt=0
 while [ "$attempt" -lt 50 ]; do
     kill -0 "$pid" 2>/dev/null || exit 1
@@ -278,7 +285,8 @@ while [ "$attempt" -lt 50 ]; do
 done
 exit 1
 """
-        result = self.shell(script, timeout=15)
+        result = self.shell(script, input=self.api_key + "\n" if authenticated else None,
+                            timeout=15)
         match = re.fullmatch(r"([1-9][0-9]*) ([0-9]+)\s*", result.stdout)
         if not match:
             raise SmokeError(f"Could not identify the {name} process")
@@ -345,19 +353,26 @@ matches() {{
         argv = ["curl", "--disable", "--silent", "--show-error", "--noproxy", "*",
                 "--proto", "=http", "--connect-timeout", "2", "--max-time", str(max_time),
                 "--write-out", "\n%{http_code}"]
+        # curl reads its config from stdin. Encode the JSON body inside that
+        # same stream so authentication and request data need no temporary file
+        # and the key is absent from process arguments.
+        config = []
         if authorized:
-            argv += ["--config", f"{self.controller}/client/curl.conf"]
+            config.append("header = " + json.dumps("Authorization: Bearer " + self.api_key))
         if body is not None:
-            argv += ["--header", "Content-Type: application/json", "--data-binary", "@-"]
+            config.append('header = "Content-Type: application/json"')
+            config.append("data-binary = " + json.dumps(json.dumps(body)))
+        if config:
+            argv += ["--config", "-"]
         argv += [f"http://127.0.0.1:{HTTP_PORT}{path}"]
-        return self.docker(*argv, input=json.dumps(body) if body is not None else None,
+        return self.docker(*argv, input="\n".join(config) + "\n" if config else None,
                            timeout=max_time + 5, check=False)
 
     def test_inference(self):
         self.start("llama-server", [f"{GUEST_ROOT}/bin/llama-server",
                    "--model", f"{GUEST_ROOT}/stories260K.gguf", "--host", "127.0.0.1", "--port", "8080",
                    "--ctx-size", "128", "--threads", "2", "--parallel", "1", "--n-gpu-layers", "0",
-                   "--api-key-file", f"{GUEST_ROOT}/api-key", "--offline", "--no-ui"])
+                   "--offline", "--no-ui"], authenticated=True)
         self.forward(HTTP_PORT, 8080)
         deadline = time.monotonic() + 90
         while True:
