@@ -141,6 +141,16 @@ def main():
                    RANLIB=str(llvm / "llvm-ranlib"), STRIP=str(llvm / "llvm-strip"),
                    CFLAGS="-O2 -fPIE", CPPFLAGS="-DHAVE_ATTRIBUTE__SENTINEL__=1",
                    LDFLAGS="-pie")
+    # Bionic exposes bzero as an inline macro. Autoconf's symbol-only check
+    # misses it, causing OpenSSH's replacement to collide with <strings.h>.
+    # Verify the header-provided call compiles and links before caching yes.
+    bzero_probe = ssh_build / "bzero-probe.c"
+    bzero_probe.write_text(
+        "#include <strings.h>\n"
+        "int main(void) { char b[1] = {1}; bzero(b, sizeof(b)); return b[0]; }\n")
+    run(compiler, "-O0", "-Werror", "-fno-builtin-bzero", bzero_probe,
+        "-o", ssh_build / "bzero-probe", env=ssh_env)
+    ssh_env["ac_cv_func_bzero"] = "yes"
     build_host = run("sh", ssh_source / "config.guess", capture=True).strip()
     ssh_flags = [
         f"--build={build_host}", "--host=x86_64-linux-android",
@@ -159,6 +169,8 @@ def main():
         raise ValueError("Unexpected OpenSSH crypto or PAM configuration")
     if not all(f"#define {name} 1" in config for name in ("DISABLE_UTMP", "DISABLE_WTMP")):
         raise ValueError("OpenSSH did not select its upstream Android configuration")
+    if "#define HAVE_BZERO 1" not in config:
+        raise ValueError("OpenSSH did not select the verified Bionic bzero implementation")
     run("make", f"-j{args.jobs}", *SSH_TOOLS, cwd=ssh_build, env=ssh_env)
 
     (package / "bin").mkdir(parents=True, exist_ok=False)
@@ -188,7 +200,7 @@ def main():
         "backend": "cpu", "cpu_baseline": "Android NDK x86_64 ABI; optional ggml ISA disabled",
         "guest_root": GUEST_ROOT, "targets": list(binaries), "cmake_flags": llama_flags,
         "openssl_configure_flags": openssl_flags, "openssh_configure_flags": ssh_flags,
-        "openssh_build_environment": {key: ssh_env[key] for key in ("CC", "AR", "RANLIB", "CFLAGS", "CPPFLAGS", "LDFLAGS")},
+        "openssh_build_environment": {key: ssh_env[key] for key in ("CC", "AR", "RANLIB", "CFLAGS", "CPPFLAGS", "LDFLAGS", "ac_cv_func_bzero")},
         "openssh_sandbox": "upstream autodetection; no override",
         "android_runtime_libraries": dependencies, "ndk_notices": notices,
         "validation": {"cross_compiled": True, "elf_verified": True,
