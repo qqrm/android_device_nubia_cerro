@@ -1,0 +1,161 @@
+name: Cuttlefish stock-image smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [server-lite]
+    paths:
+      - '.github/workflows/cuttlefish-smoke.yml'
+      - 'server/device/inventory.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cuttlefish-stock-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Official container 1.57.13, pinned multiarch manifest; this job uses amd64.
+  CF_IMAGE: us-docker.pkg.dev/android-cuttlefish-artifacts/cuttlefish-orchestration/cuttlefish-orchestration@sha256:556357126cb99e4caa4842e7892051257f3bd9d41fa74b46ea158f044e765d7a
+  # Both image and host package are pinned to this build in the upstream test.
+  CF_BUILD_ID: '15150359'
+
+jobs:
+  stock-image:
+    name: Stock Android boot, ADB and inventory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Cerro tools
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Checkout upstream Cuttlefish test
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: google/android-cuttlefish
+          ref: a269362bbc0850a04ebffda92fe2219c1bc6f7af
+          path: .build/android-cuttlefish
+          persist-credentials: false
+      - name: Check virtualization and make room for images
+        run: |
+          mkdir -p "$RUNNER_TEMP/cuttlefish-results"
+          for device in /dev/kvm /dev/net/tun /dev/vhost-net /dev/vhost-vsock; do
+            test -c "$device" || { echo "::error::Missing $device on this runner"; exit 1; }
+          done
+          command -v bazel
+          command -v jq
+          docker version > "$RUNNER_TEMP/cuttlefish-results/docker-version.txt"
+          # These preinstalled SDKs are unused on this disposable hosted runner.
+          # ADB comes from the Cuttlefish container; no Android source build runs.
+          sudo rm -rf -- /usr/local/lib/android/sdk /usr/share/dotnet
+          df -h > "$RUNNER_TEMP/cuttlefish-results/disk-space.txt"
+          available=$(df -B1 --output=avail "$RUNNER_TEMP" | tail -n 1)
+          (( available >= 20 * 1024 * 1024 * 1024 )) || {
+            echo '::error::At least 20 GiB free disk space is required for this smoke job'
+            exit 1
+          }
+          jq -n --arg source "$(git rev-parse HEAD)" --arg image "$CF_IMAGE" \
+            --arg upstream "$(git -C .build/android-cuttlefish rev-parse HEAD)" \
+            --arg build "$CF_BUILD_ID" \
+            '{source_commit:$source,container:$image,upstream_commit:$upstream,
+              android_build:$build,coverage:"stock Android baseline only"}' \
+            > "$RUNNER_TEMP/cuttlefish-results/versions.json"
+      - name: Start official Cuttlefish container
+        timeout-minutes: 10
+        run: |
+          docker pull "$CF_IMAGE"
+          docker run --detach --name cerro-cuttlefish \
+            --device /dev/kvm --device /dev/net/tun \
+            --device /dev/vhost-net --device /dev/vhost-vsock \
+            --cap-add NET_ADMIN --security-opt seccomp=unconfined \
+            --publish 127.0.0.1:2080:2080 "$CF_IMAGE"
+          for _ in {1..30}; do
+            if curl --fail --silent --show-error --max-time 2 \
+              http://127.0.0.1:2080/cvds > "$RUNNER_TEMP/cuttlefish-results/cvds.json"; then
+              jq -e '.cvds | length == 0' "$RUNNER_TEMP/cuttlefish-results/cvds.json"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo '::error::Cuttlefish orchestrator did not become ready'
+          exit 1
+      - name: Boot pinned stock image with upstream integration test
+        timeout-minutes: 25
+        working-directory: .build/android-cuttlefish/e2etests
+        run: |
+          # Upstream pins Bazel 8.5.1, Go and both Android artifacts. This builds
+          # only its small host test, downloads the images and boots a real VM.
+          bazel --output_user_root="$RUNNER_TEMP/cuttlefish-bazel" test \
+            --jobs=2 --nocache_test_results --test_timeout=900 \
+            --test_output=errors --nozip_undeclared_test_outputs \
+            //orchestration/create_from_images_zip_test:create_from_images_zip_test_test
+      - name: Check guest identity, writable data and Cerro inventory
+        timeout-minutes: 5
+        run: |
+          curl --fail --silent --show-error --max-time 10 http://127.0.0.1:2080/cvds \
+            > "$RUNNER_TEMP/cuttlefish-results/cvds.json"
+          serial=$(jq -er '.cvds | select(length == 1) | .[0] |
+            select(.group == "foo" and .status == "Running") | .adb_serial' \
+            "$RUNNER_TEMP/cuttlefish-results/cvds.json")
+          [[ "$serial" =~ ^(127\.0\.0\.1|0\.0\.0\.0|localhost):[0-9]+$ ]]
+          printf '%s\n' "$serial" > "$RUNNER_TEMP/cuttlefish-results/adb-serial.txt"
+          cf_adb() {
+            timeout 60s docker exec -i cerro-cuttlefish /usr/lib/cuttlefish-common/bin/adb "$@"
+          }
+          cf_adb connect "$serial"
+          cf_adb -s "$serial" wait-for-device
+          test "$(cf_adb -s "$serial" shell -T getprop ro.product.cpu.abi)" = x86_64
+          test "$(cf_adb -s "$serial" shell -T getprop ro.build.version.incremental)" = "$CF_BUILD_ID"
+          # This is a stock-framework readiness check, not a no-Zygote contract.
+          test "$(cf_adb -s "$serial" shell -T getprop sys.boot_completed)" = 1
+          cf_adb -s "$serial" shell -T sh <<'GUEST'
+          set -eu
+          probe=$(mktemp /data/local/tmp/cerro-ci.XXXXXX)
+          trap 'rm -f "$probe"' EXIT
+          token=$(cat /proc/sys/kernel/random/uuid)
+          printf '%s' "$token" > "$probe"
+          test "$(cat "$probe")" = "$token"
+          GUEST
+          cf_adb -s "$serial" shell -T sh < server/device/inventory.sh \
+            > "$RUNNER_TEMP/cuttlefish-results/inventory.txt"
+          printf '%s\n' \
+            '## Stock Cuttlefish baseline passed' \
+            'Verified: real VM boot, expected x86_64 build, ADB, temporary data write/read and Cerro inventory.' \
+            'No-Zygote product, SSH, inference and NX721J hardware remain untested by this job.' \
+            >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect diagnostics
+        if: always()
+        timeout-minutes: 3
+        run: |
+          mkdir -p "$RUNNER_TEMP/cuttlefish-results"
+          docker logs cerro-cuttlefish > "$RUNNER_TEMP/cuttlefish-results/container.log" 2>&1 || true
+          docker cp cerro-cuttlefish:/run/cuttlefish/host_orchestrator.log \
+            "$RUNNER_TEMP/cuttlefish-results/host_orchestrator.log" || true
+          if test -s "$RUNNER_TEMP/cuttlefish-results/adb-serial.txt"; then
+            serial=$(cat "$RUNNER_TEMP/cuttlefish-results/adb-serial.txt")
+            timeout 30s docker exec cerro-cuttlefish /usr/lib/cuttlefish-common/bin/adb \
+              -s "$serial" logcat -b all -d -t 2000 \
+              > "$RUNNER_TEMP/cuttlefish-results/logcat.txt" 2>&1 || true
+          fi
+          testlogs=.build/android-cuttlefish/e2etests/bazel-testlogs/orchestration/create_from_images_zip_test/create_from_images_zip_test_test
+          if test -d "$testlogs"; then
+            # Resolve Bazel's symlink and avoid upload-artifact's hidden-path filter.
+            cp -RL "$testlogs" "$RUNNER_TEMP/cuttlefish-results/upstream-test"
+          fi
+      - name: Upload baseline report and boot diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: cuttlefish-stock-baseline
+          path: ${{ runner.temp }}/cuttlefish-results/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove disposable Cuttlefish container
+        if: always()
+        run: docker rm --force cerro-cuttlefish || true

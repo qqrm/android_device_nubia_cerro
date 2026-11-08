@@ -48,6 +48,11 @@ Termux, Termux:Boot и текущий `phone.py` — инструменты эт
 
 ## Следующий аппаратный шаг
 
+До аппаратного bring-up можно проверить виртуальный Android в
+[Cuttlefish через GitHub Actions](CUTTLEFISH.md). Текущий workflow проверяет
+стандартный образ и `inventory.sh`; для проверки отсутствия framework нужен
+отдельно собранный виртуальный product без Zygote.
+
 1. Выполнить read-only `server/device/inventory.sh` через уже авторизованный USB/ADB.
    Сохранить результат вне Git. Он фиксирует версии, boot-state, память, процессы,
    системные пакеты и состояния init-служб; он ничего не отключает. Этот шаг
