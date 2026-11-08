@@ -1,4 +1,4 @@
-name: Cuttlefish stock-image smoke
+name: Cuttlefish native server smoke
 
 on:
   workflow_dispatch:
@@ -7,6 +7,10 @@ on:
     paths:
       - '.github/workflows/cuttlefish-smoke.yml'
       - 'server/device/inventory.sh'
+      - 'server/build.py'
+      - 'server/versions.json'
+      - 'server/virtual/**'
+      - 'server/tests/test_virtual_smoke.py'
 
 permissions:
   contents: read
@@ -26,8 +30,73 @@ env:
   CF_BUILD_ID: '15150359'
 
 jobs:
+  native-build:
+    name: Android x86_64 native test binaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout native test tools
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Validate test tools and read pinned versions
+        id: versions
+        run: |
+          python3 -m py_compile server/build.py server/virtual/build.py server/virtual/smoke.py
+          python3 -m unittest discover -s server/tests -p test_virtual_smoke.py -v
+          python3 server/virtual/build.py --github-outputs
+      - name: Checkout pinned llama.cpp
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ steps.versions.outputs.llama_commit }}
+          path: .build/src/llama.cpp
+          persist-credentials: false
+      - name: Checkout pinned OpenSSH
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: openssh/openssh-portable
+          ref: ${{ steps.versions.outputs.openssh_commit }}
+          path: .build/src/openssh
+          persist-credentials: false
+      - name: Checkout pinned OpenSSL
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: openssl/openssl
+          ref: ${{ steps.versions.outputs.openssl_commit }}
+          path: .build/src/openssl
+          persist-credentials: false
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          log-accepted-android-sdk-licenses: false
+      - name: Install native build dependencies
+        env:
+          NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends autoconf automake
+          sdkmanager "ndk;${NDK_VERSION}"
+      - name: Cross-build and verify native Android binaries
+        env:
+          NDK_VERSION: ${{ steps.versions.outputs.ndk_version }}
+        run: python3 server/virtual/build.py --ndk "${ANDROID_HOME}/ndk/${NDK_VERSION}" --jobs 2
+      - name: Upload virtual test payload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: cerro-native-android-x86_64
+          path: |
+            dist/virtual-native/cerro-native-android-x86_64.tar.gz
+            dist/virtual-native/cerro-native-android-x86_64.tar.gz.sha256
+            dist/virtual-native/build-report.json
+            dist/virtual-native/elf-report.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
   stock-image:
-    name: Stock Android boot, ADB and inventory
+    name: Stock Android, native SSH and inference
+    needs: native-build
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -42,6 +111,16 @@ jobs:
           ref: a269362bbc0850a04ebffda92fe2219c1bc6f7af
           path: .build/android-cuttlefish
           persist-credentials: false
+      - name: Download native test payload
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: cerro-native-android-x86_64
+          path: dist/virtual-native
+      - name: Verify and unpack native test payload
+        working-directory: dist/virtual-native
+        run: |
+          sha256sum --check cerro-native-android-x86_64.tar.gz.sha256
+          tar --extract --gzip --file cerro-native-android-x86_64.tar.gz --no-same-owner
       - name: Check virtualization and make room for images
         run: |
           mkdir -p "$RUNNER_TEMP/cuttlefish-results"
@@ -64,7 +143,7 @@ jobs:
             --arg upstream "$(git -C .build/android-cuttlefish rev-parse HEAD)" \
             --arg build "$CF_BUILD_ID" \
             '{source_commit:$source,container:$image,upstream_commit:$upstream,
-              android_build:$build,coverage:"stock Android baseline only"}' \
+              android_build:$build,coverage:"stock Android with separate native service probes"}' \
             > "$RUNNER_TEMP/cuttlefish-results/versions.json"
       - name: Start official Cuttlefish container
         timeout-minutes: 10
@@ -127,8 +206,23 @@ jobs:
           printf '%s\n' \
             '## Stock Cuttlefish baseline passed' \
             'Verified: real VM boot, expected x86_64 build, ADB, temporary data write/read and Cerro inventory.' \
-            'No-Zygote product, SSH, inference and NX721J hardware remain untested by this job.' \
+            'No-Zygote cold boot and NX721J hardware remain outside this stock-image check.' \
             >> "$GITHUB_STEP_SUMMARY"
+      - name: Prepare controller SSH client
+        timeout-minutes: 3
+        run: |
+          # Only a client is installed in the disposable controller container.
+          docker exec cerro-cuttlefish sh -c 'command -v ssh >/dev/null || {
+            apt-get update -qq && apt-get install -y --no-install-recommends openssh-client;
+          }'
+      - name: Exercise native SSH authentication and CPU inference
+        timeout-minutes: 10
+        run: |
+          python3 server/virtual/smoke.py \
+            --bundle dist/virtual-native/cerro-native-x86_64 \
+            --container cerro-cuttlefish \
+            --serial-file "$RUNNER_TEMP/cuttlefish-results/adb-serial.txt" \
+            --output-dir "$RUNNER_TEMP/cuttlefish-results/native"
       - name: Collect diagnostics
         if: always()
         timeout-minutes: 3
@@ -148,7 +242,7 @@ jobs:
             # Resolve Bazel's symlink and avoid upload-artifact's hidden-path filter.
             cp -RL "$testlogs" "$RUNNER_TEMP/cuttlefish-results/upstream-test"
           fi
-      - name: Upload baseline report and boot diagnostics
+      - name: Upload runtime report and boot diagnostics
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:

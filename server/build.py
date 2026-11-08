@@ -39,14 +39,17 @@ def load_versions():
     return data
 
 
-def verify_elf(readelf, binary):
+def verify_elf(readelf, binary, *, abi="arm64-v8a"):
+    machines = {"arm64-v8a": r"AArch64", "x86_64": r"Advanced Micro Devices X86-64"}
+    if abi not in machines:
+        raise ValueError(f"Unsupported native build ABI: {abi}")
     report = run(readelf, "--file-header", "--program-headers", "--dynamic",
                  "--notes", binary, capture=True)
     required = (r"Class:\s+ELF64", r"Data:.*little endian",
-                r"Type:\s+DYN", r"Machine:\s+AArch64",
+                r"Type:\s+DYN", rf"Machine:\s+{machines[abi]}",
                 r"Requesting program interpreter: /system/bin/linker64")
     if not all(re.search(pattern, report) for pattern in required):
-        raise ValueError(f"{binary.name}: not an Android ARM64 PIE executable")
+        raise ValueError(f"{binary.name}: not an Android {abi} PIE executable")
     needed = re.findall(r"\(NEEDED\).*Shared library: \[([^]]+)\]", report)
     unexpected = set(needed) - SYSTEM_LIBS
     if unexpected or "libc.so" not in needed:
@@ -54,6 +57,39 @@ def verify_elf(readelf, binary):
     if re.search(r"\((?:RPATH|RUNPATH)\)", report):
         raise ValueError(f"{binary.name}: unexpected runtime search path")
     return report, needed
+
+
+def llama_cmake_flags(ndk, *, abi="arm64-v8a"):
+    """Common CPU-only flags; the phone CLI remains ARM64-only."""
+    if abi not in {"arm64-v8a", "x86_64"}:
+        raise ValueError(f"Unsupported native build ABI: {abi}")
+    flags = [
+        "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_SKIP_RPATH=ON",
+        f"-DCMAKE_TOOLCHAIN_FILE={ndk}/build/cmake/android.toolchain.cmake",
+        f"-DANDROID_ABI={abi}", "-DANDROID_PLATFORM=android-28",
+        "-DANDROID_STL=c++_static", "-DBUILD_SHARED_LIBS=OFF",
+        "-DGGML_STATIC=OFF", "-DGGML_BACKEND_DL=OFF",
+        "-DGGML_NATIVE=OFF", "-DGGML_CPU_ALL_VARIANTS=OFF", "-DGGML_CCACHE=OFF",
+        "-DGGML_CPU_KLEIDIAI=OFF", "-DGGML_OPENMP=OFF",
+        "-DGGML_LLAMAFILE=OFF", "-DGGML_OPENCL=OFF",
+        "-DGGML_VULKAN=OFF", "-DGGML_BLAS=OFF", "-DGGML_RPC=OFF",
+        "-DLLAMA_BUILD_COMMON=ON", "-DLLAMA_BUILD_TOOLS=ON",
+        "-DLLAMA_BUILD_SERVER=ON", "-DLLAMA_BUILD_APP=OFF",
+        "-DLLAMA_BUILD_TESTS=OFF", "-DLLAMA_BUILD_EXAMPLES=OFF",
+        "-DLLAMA_BUILD_UI=OFF", "-DLLAMA_USE_PREBUILT_UI=OFF",
+        "-DLLAMA_OPENSSL=OFF", "-DLLAMA_BUILD_BORINGSSL=OFF",
+        "-DLLAMA_BUILD_LIBRESSL=OFF", "-DLLAMA_SUBPROCESS=OFF",
+        "-DLLAMA_LLGUIDANCE=OFF", "-DLLAMA_CONNECT=OFF",
+    ]
+    if abi == "x86_64":
+        # GGML_NATIVE=OFF alone may still enable AVX2/FMA on an x86 build.
+        # The VM smoke test needs only the NDK's x86_64 ABI baseline.
+        flags.extend(f"-DGGML_{feature}=OFF" for feature in (
+            "SSE42", "AVX", "AVX2", "BMI2", "FMA", "F16C", "AVX_VNNI",
+            "AVX512", "AVX512_VBMI", "AVX512_VNNI", "AVX512_BF16",
+            "AMX_TILE", "AMX_INT8", "AMX_BF16",
+        ))
+    return flags
 
 
 def sha256(path):
@@ -117,24 +153,7 @@ def main():
     if revision is None or revision.group(1) != versions["ndk_version"]:
         raise ValueError("NDK revision does not match server/versions.json")
     llvm = ndk / "toolchains/llvm/prebuilt/linux-x86_64/bin"
-    flags = [
-        "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_SKIP_RPATH=ON",
-        f"-DCMAKE_TOOLCHAIN_FILE={ndk}/build/cmake/android.toolchain.cmake",
-        "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-28",
-        "-DANDROID_STL=c++_static", "-DBUILD_SHARED_LIBS=OFF",
-        "-DGGML_STATIC=OFF", "-DGGML_BACKEND_DL=OFF",
-        "-DGGML_NATIVE=OFF", "-DGGML_CPU_ALL_VARIANTS=OFF", "-DGGML_CCACHE=OFF",
-        "-DGGML_CPU_KLEIDIAI=OFF", "-DGGML_OPENMP=OFF",
-        "-DGGML_LLAMAFILE=OFF", "-DGGML_OPENCL=OFF",
-        "-DGGML_VULKAN=OFF", "-DGGML_BLAS=OFF", "-DGGML_RPC=OFF",
-        "-DLLAMA_BUILD_COMMON=ON", "-DLLAMA_BUILD_TOOLS=ON",
-        "-DLLAMA_BUILD_SERVER=ON", "-DLLAMA_BUILD_APP=OFF",
-        "-DLLAMA_BUILD_TESTS=OFF", "-DLLAMA_BUILD_EXAMPLES=OFF",
-        "-DLLAMA_BUILD_UI=OFF", "-DLLAMA_USE_PREBUILT_UI=OFF",
-        "-DLLAMA_OPENSSL=OFF", "-DLLAMA_BUILD_BORINGSSL=OFF",
-        "-DLLAMA_BUILD_LIBRESSL=OFF", "-DLLAMA_SUBPROCESS=OFF",
-        "-DLLAMA_LLGUIDANCE=OFF", "-DLLAMA_CONNECT=OFF",
-    ]
+    flags = llama_cmake_flags(ndk)
     started = time.monotonic()
     run("cmake", "-S", source, "-B", build, "-G", "Ninja", *flags)
     run("cmake", "--build", build, "--parallel", args.jobs,

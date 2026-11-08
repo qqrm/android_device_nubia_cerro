@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "abi": "x86_64",
+  "openssh_repository": "openssh/openssh-portable",
+  "openssh_version": "10.6p1",
+  "openssh_tag": "V_10_6_P1",
+  "openssh_commit": "a8c72b842423f0774f542d3c2197247c3dd28d74",
+  "openssl_repository": "openssl/openssl",
+  "openssl_version": "3.5.9",
+  "openssl_tag": "openssl-3.5.9",
+  "openssl_commit": "45e844fa2a14ec92d146bd8f5778ac130b6625fb",
+  "model_repository": "ggml-org/models",
+  "model_revision": "499bc8821c6b12b4e53c5bffcb21ec206f212d81",
+  "model_file": "tinyllamas/stories260K.gguf",
+  "model_bytes": 1185376,
+  "model_sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d"
+}
