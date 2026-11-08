@@ -6,8 +6,13 @@ Workflow [`Cuttlefish stock-image smoke`](../.github/workflows/cuttlefish-smoke.
 `server/device/inventory.sh`. Runner рядом с телефоном не нужен.
 
 **Это проверка стандартного Android-образа и инвентаризации. Она не проверяет
-`lineage_cerro`, отдельный продукт без Zygote, SSH или inference. Первый успешный
-прогон этого workflow в нашем репозитории пока не подтверждён.**
+`lineage_cerro`, отдельный продукт без Zygote, SSH или inference.**
+
+[Первый прогон](https://github.com/qqrm/android_device_nubia_cerro/actions/runs/42490329448)
+успешно завершился 8 ноября 2026 года за 3 мин 50 с на commit
+`425e28dc446e6a64f53140e40d332d6cc6ed1b9c`: загрузка VM, ADB, запись/чтение
+данных и inventory прошли. В отчёте `failed_commands=0` и `ro.zygote=zygote64`,
+то есть проверен именно стандартный Android с framework.
 
 ## Что проверяет job
 
