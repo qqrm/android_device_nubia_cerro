@@ -134,9 +134,13 @@ def main():
     run("autoreconf", "-fi", cwd=ssh_source)
     ssh_build.mkdir()
     ssh_env = env.copy()
+    # NDK Clang supports sentinel attributes. OpenSSH's empty fallback macro
+    # otherwise breaks Bionic's __sentinel__(1) declaration in <unistd.h>.
+    # This is the same feature selection as AOSP OpenSSH commit 819a147a5358.
     ssh_env.update(CC=str(compiler), AR=str(llvm / "llvm-ar"),
                    RANLIB=str(llvm / "llvm-ranlib"), STRIP=str(llvm / "llvm-strip"),
-                   CFLAGS="-O2 -fPIE", LDFLAGS="-pie")
+                   CFLAGS="-O2 -fPIE", CPPFLAGS="-DHAVE_ATTRIBUTE__SENTINEL__=1",
+                   LDFLAGS="-pie")
     build_host = run("sh", ssh_source / "config.guess", capture=True).strip()
     ssh_flags = [
         f"--build={build_host}", "--host=x86_64-linux-android",
@@ -184,7 +188,7 @@ def main():
         "backend": "cpu", "cpu_baseline": "Android NDK x86_64 ABI; optional ggml ISA disabled",
         "guest_root": GUEST_ROOT, "targets": list(binaries), "cmake_flags": llama_flags,
         "openssl_configure_flags": openssl_flags, "openssh_configure_flags": ssh_flags,
-        "openssh_build_environment": {key: ssh_env[key] for key in ("CC", "AR", "RANLIB", "CFLAGS", "LDFLAGS")},
+        "openssh_build_environment": {key: ssh_env[key] for key in ("CC", "AR", "RANLIB", "CFLAGS", "CPPFLAGS", "LDFLAGS")},
         "openssh_sandbox": "upstream autodetection; no override",
         "android_runtime_libraries": dependencies, "ndk_notices": notices,
         "validation": {"cross_compiled": True, "elf_verified": True,
